@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="PakJobInfo shares government and private jobs, internships, admissions, results, and career guidance across Pakistan." />
+    <meta name="theme-color" content="#013d2d" />
+    <meta property="og:site_name" content="PakJobInfo" />
+    <meta property="og:title" content="PakJobInfo | Jobs & Career Updates in Pakistan" />
+    <meta property="og:description" content="Find verified government jobs, private sector careers, internships, admissions, and career opportunities across Pakistan." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PakJobInfo | Jobs & Career Updates in Pakistan" />
+    <meta name="twitter:description" content="Find verified jobs and career updates across Pakistan." />
+    <link rel="icon" type="image/svg+xml" href="/pakjobinfo-mark.svg" />
+    <title>PakJobInfo | Jobs & Career Updates in Pakistan</title>
+    <style>
+      .startup-skeleton { min-height: 100vh; padding: 18px max(16px, calc((100vw - 1280px) / 2)); background: #f8fafc; }
+      .startup-bar, .startup-line, .startup-image { position: relative; overflow: hidden; background: #e7ece9; }
+      .startup-bar::after, .startup-line::after, .startup-image::after { position: absolute; inset: 0; content: ''; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.72), transparent); animation: startup-shimmer 1.35s infinite; }
+      .startup-bar { height: 68px; border-radius: 20px; background: #013d2d; }
+      .startup-hero { display: grid; grid-template-columns: 1.15fr .85fr; gap: 24px; margin: 28px 0; padding: 32px; border-radius: 24px; background: #e7ece9; }
+      .startup-line { height: 16px; margin: 14px 0; border-radius: 8px; }
+      .startup-line.large { width: 82%; height: 34px; }
+      .startup-line.medium { width: 62%; }
+      .startup-line.small { width: 38%; }
+      .startup-image { height: 230px; border-radius: 18px; }
+      .startup-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+      .startup-card { overflow: hidden; border: 1px solid #e2e8e5; border-radius: 16px; background: white; }
+      .startup-card .startup-image { height: 150px; border-radius: 0; }
+      .startup-card-body { padding: 16px; }
+      @keyframes startup-shimmer { 100% { transform: translateX(100%); } }
+      @media (max-width: 760px) {
+        .startup-skeleton { padding: 12px 16px; }
+        .startup-hero { grid-template-columns: 1fr; padding: 22px; }
+        .startup-hero .startup-image { display: none; }
+        .startup-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      }
+      @media (prefers-reduced-motion: reduce) { .startup-bar::after, .startup-line::after, .startup-image::after { animation: none; transform: none; opacity: .35; } }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="startup-skeleton" aria-label="Loading Pakistan Jobs Portal" role="status">
+        <div class="startup-bar"></div>
+        <div class="startup-hero">
+          <div>
+            <div class="startup-line small"></div><div class="startup-line large"></div><div class="startup-line large"></div>
+            <div class="startup-line medium"></div><div class="startup-line small"></div>
+          </div>
+          <div class="startup-image"></div>
+        </div>
+        <div class="startup-line medium"></div>
+        <div class="startup-cards">
+          <div class="startup-card"><div class="startup-image"></div><div class="startup-card-body"><div class="startup-line medium"></div><div class="startup-line small"></div></div></div>
+          <div class="startup-card"><div class="startup-image"></div><div class="startup-card-body"><div class="startup-line medium"></div><div class="startup-line small"></div></div></div>
+          <div class="startup-card"><div class="startup-image"></div><div class="startup-card-body"><div class="startup-line medium"></div><div class="startup-line small"></div></div></div>
+          <div class="startup-card"><div class="startup-image"></div><div class="startup-card-body"><div class="startup-line medium"></div><div class="startup-line small"></div></div></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
