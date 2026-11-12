@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { isSupabaseConfigured, supabase } from './supabase'
+import { normalizeImageUrl } from './imageUrl'
 import type { BlogArticle } from '../types.blog'
 
 const storageKey = 'jobsite-blogs'
@@ -50,7 +51,8 @@ export async function reloadBlogs() {
     slug: String(row.slug),
     excerpt: String(row.excerpt),
     content: String(row.content),
-    thumbnailUrl: String(row.thumbnail_url ?? ''),
+    thumbnailUrl: normalizeImageUrl(String(row.thumbnail_url ?? '')),
+    additionalLinks: Array.isArray(row.additional_links) ? row.additional_links as BlogArticle['additionalLinks'] : [],
     socialLinks: row.social_links && typeof row.social_links === 'object'
       ? row.social_links as BlogArticle['socialLinks']
       : undefined,
@@ -95,6 +97,7 @@ export function saveBlogs(update: BlogArticle[] | ((current: BlogArticle[]) => B
         excerpt: blog.excerpt,
         content: blog.content,
         thumbnail_url: blog.thumbnailUrl,
+        additional_links: blog.additionalLinks ?? [],
         social_links: blog.socialLinks ?? {},
         status: blog.status,
         updated_at: blog.updatedAt,

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { isSupabaseConfigured, supabase } from './supabase'
+import { normalizeImageUrl } from './imageUrl'
 import type { Sponsor } from '../types.sponsor'
 
 const storageKey = 'jobsite-sponsors'
@@ -54,9 +55,10 @@ export async function reloadSponsors() {
     id: String(row.external_id ?? row.id),
     name: String(row.name),
     description: String(row.description ?? ''),
-    thumbnailUrl: String(row.thumbnail_url ?? ''),
+    thumbnailUrl: normalizeImageUrl(String(row.thumbnail_url ?? '')),
     destinationUrl: String(row.destination_url ?? ''),
     socialLinks: row.social_links && typeof row.social_links === 'object' ? row.social_links as Sponsor['socialLinks'] : {},
+    additionalLinks: Array.isArray(row.additional_links) ? row.additional_links as Sponsor['additionalLinks'] : [],
     status: String(row.status) as Sponsor['status'],
     expiryDays: row.expiry_days === 3 || row.expiry_days === 7 || row.expiry_days === 10 ? row.expiry_days : null,
     expiresAt: row.expires_at ? String(row.expires_at) : null,
@@ -92,6 +94,7 @@ export async function saveSponsors(update: Sponsor[] | ((current: Sponsor[]) => 
       thumbnail_url: sponsor.thumbnailUrl,
       destination_url: sponsor.destinationUrl,
       social_links: sponsor.socialLinks ?? {},
+      additional_links: sponsor.additionalLinks ?? [],
       status: sponsor.status,
       expiry_days: sponsor.expiryDays,
       expires_at: sponsor.expiresAt,

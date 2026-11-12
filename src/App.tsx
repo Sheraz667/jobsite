@@ -1,6 +1,6 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
-import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AcademicUpdatesPage } from './pages/AcademicUpdatesPage'
 import { BlogDetailPage } from './pages/BlogDetailPage'
 import { BlogsPage } from './pages/BlogsPage'
@@ -10,6 +10,8 @@ import { JobDetailPage } from './pages/JobDetailPage'
 import { JobsPage } from './pages/JobsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { StaticPage } from './pages/StaticPage'
+
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })))
 
 const categoryRoutes = [
   { path: '/government', key: 'government' },
@@ -43,7 +45,7 @@ function App() {
           <Route path="editorial-policy" element={<StaticPage title="Editorial Policy" intro="Our editorial process is focused on accuracy, public-source transparency, and responsible job listing practices." list={['Only include published and current opportunities', 'Avoid fake or misleading job claims', 'Review and update listings when official notices change']} />} />
           <Route path="admissions" element={<AcademicUpdatesPage kind="admissions" />} />
           <Route path="results" element={<AcademicUpdatesPage kind="results" />} />
-          <Route path="admin" element={<AdminDashboardPage />} />
+          <Route path="admin" element={<Suspense fallback={<div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 text-sm text-slate-600">Loading admin workspace…</div>}><AdminDashboardPage /></Suspense>} />
           {categoryRoutes.map((route) => (
             <Route
               key={route.path}

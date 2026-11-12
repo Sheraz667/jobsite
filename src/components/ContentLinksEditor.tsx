@@ -16,7 +16,7 @@ export function ContentLinksEditor({ links, onChange }: ContentLinksEditorProps)
       <legend className="px-1 text-sm font-semibold text-slate-700">Extra links (optional)</legend>
       <div className="space-y-3">
         {links.map((link, index) => (
-          <div key={`${index}-${link.type}`} className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)_minmax(0,1.3fr)_2.5rem]">
+          <div key={index} className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)_minmax(0,1.3fr)_2.5rem]">
             <select aria-label={`Link ${index + 1} type`} value={link.type} onChange={(event) => updateLink(index, { type: event.target.value as ContentLink['type'] })} className="h-10 rounded-lg border border-slate-300 bg-slate-50 px-2 text-sm outline-none focus:border-[#005b3f]">
               <option value="external">External</option>
               <option value="internal">Internal</option>

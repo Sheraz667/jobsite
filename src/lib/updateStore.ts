@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { isSupabaseConfigured, supabase } from './supabase'
+import { normalizeImageUrl } from './imageUrl'
 import type { AcademicUpdate, UpdateKind } from '../types.update'
 
 const storageKey = 'jobsite-academic-updates'
@@ -57,6 +58,7 @@ export async function reloadUpdates() {
     title: String(row.title),
     department: String(row.department ?? ''),
     details: String(row.details ?? ''),
+    thumbnailUrl: normalizeImageUrl(String(row.thumbnail_url ?? '')),
     sourceUrl: String(row.source_url ?? ''),
     actionUrl: String(row.action_url ?? ''),
     additionalLinks: Array.isArray(row.additional_links) ? row.additional_links as AcademicUpdate['additionalLinks'] : [],
@@ -91,6 +93,7 @@ export async function saveUpdates(update: AcademicUpdate[] | ((current: Academic
       title: item.title,
       department: item.department,
       details: item.details,
+      thumbnail_url: item.thumbnailUrl,
       source_url: item.sourceUrl,
       action_url: item.actionUrl,
       additional_links: item.additionalLinks ?? [],

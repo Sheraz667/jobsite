@@ -1,5 +1,6 @@
-import { ArrowUpRight, CalendarDays, FileCheck2, Landmark } from 'lucide-react'
+import { ArrowUpRight, CalendarDays, FileCheck2, Image as ImageIcon, Landmark } from 'lucide-react'
 import { ContentLinksList } from '../components/ContentLinksList'
+import { normalizeImageUrl } from '../lib/imageUrl'
 import { usePageMeta } from '../lib/usePageMeta'
 import { useUpdates } from '../lib/updateStore'
 import type { UpdateKind } from '../types.update'
@@ -39,7 +40,10 @@ export function AcademicUpdatesPage({ kind }: AcademicUpdatesPageProps) {
       {updates.length ? (
         <div className="divide-y divide-slate-200">
           {updates.map((item) => (
-            <article key={item.id} className="grid gap-5 py-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <article key={item.id} className="grid gap-4 py-6 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:items-center">
+              <div className="flex aspect-square w-24 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-400 sm:w-24">
+                {item.thumbnailUrl ? <img src={normalizeImageUrl(item.thumbnailUrl)} alt="" loading="lazy" className="h-full w-full object-cover" /> : <ImageIcon className="size-6" />}
+              </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                   <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-800"><Landmark className="size-3.5" />{item.department}</span>
@@ -54,7 +58,7 @@ export function AcademicUpdatesPage({ kind }: AcademicUpdatesPageProps) {
               <a href={item.actionUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#013d2d] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#005b3f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f7d154]">
                 <FileCheck2 className="size-4" />{copy.actionLabel}
               </a>
-              <ContentLinksList links={item.additionalLinks} />
+              <div className="sm:col-span-3"><ContentLinksList links={item.additionalLinks} /></div>
             </article>
           ))}
         </div>

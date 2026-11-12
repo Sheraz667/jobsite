@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { JobCard } from '../components/JobCard'
 import { useCategories } from '../lib/categoryStore'
+import { isJobUnavailable } from '../lib/jobDeadline'
 import { useJobs } from '../lib/jobStore'
 import { usePageMeta } from '../lib/usePageMeta'
 
@@ -13,7 +14,7 @@ export function JobsPage() {
   const [selectedProvince, setSelectedProvince] = useState('All')
 
   const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => !['Draft', 'Closed', 'Expired'].includes(job.status)).filter((job) => {
+    return jobs.filter((job) => !isJobUnavailable(job)).filter((job) => {
       const matchesSearch =
         job.title.toLowerCase().includes(search.toLowerCase()) ||
         job.department.toLowerCase().includes(search.toLowerCase()) ||

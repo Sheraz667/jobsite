@@ -69,6 +69,7 @@ create table if not exists blogs (
   excerpt text not null,
   content text not null,
   thumbnail_url text,
+  additional_links jsonb not null default '[]'::jsonb,
   social_links jsonb not null default '{}'::jsonb,
   status text not null default 'Draft' check (status in ('Draft','Published')),
   created_at timestamptz not null default now(),
@@ -76,6 +77,7 @@ create table if not exists blogs (
 );
 
 alter table blogs add column if not exists social_links jsonb not null default '{}'::jsonb;
+alter table blogs add column if not exists additional_links jsonb not null default '[]'::jsonb;
 
 create table if not exists admin_profiles (
   id uuid primary key default gen_random_uuid(),
@@ -100,6 +102,7 @@ create table if not exists sponsors (
   expiry_days integer,
   expires_at timestamptz,
   social_links jsonb not null default '{}'::jsonb,
+  additional_links jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -121,6 +124,7 @@ on conflict (slug) do nothing;
 alter table sponsors add column if not exists expiry_days integer;
 alter table sponsors add column if not exists expires_at timestamptz;
 alter table sponsors add column if not exists social_links jsonb not null default '{}'::jsonb;
+alter table sponsors add column if not exists additional_links jsonb not null default '[]'::jsonb;
 alter table sponsors drop constraint if exists sponsors_status_check;
 alter table sponsors add constraint sponsors_status_check check (status in ('Draft','Published','Closed'));
 alter table sponsors drop constraint if exists sponsors_expiry_days_check;
@@ -151,6 +155,7 @@ create table if not exists academic_updates (
   title text not null,
   department text not null,
   details text not null,
+  thumbnail_url text,
   source_url text not null,
   action_url text not null,
   additional_links jsonb not null default '[]'::jsonb,
@@ -160,6 +165,7 @@ create table if not exists academic_updates (
 );
 
 alter table academic_updates add column if not exists additional_links jsonb not null default '[]'::jsonb;
+alter table academic_updates add column if not exists thumbnail_url text;
 alter table academic_updates enable row level security;
 create index if not exists academic_updates_kind_status_created_idx on academic_updates(kind, status, created_at desc);
 drop policy if exists "Public published academic updates are readable" on academic_updates;
@@ -200,7 +206,20 @@ alter table blogs enable row level security;
 
 drop policy if exists "Public jobs are readable" on jobs;
 create policy "Public jobs are readable" on jobs
-for select using (status in ('Published','Open','Closing Soon','Coming Soon'));
+for select using (
+  status in ('Published','Open','Closing Soon','Coming Soon','Closed','Expired')
+);
+
+create extension if not exists pg_cron;
+select cron.unschedule(jobid) from cron.job where jobname = 'expire-past-deadline-jobs';
+select cron.schedule(
+  'expire-past-deadline-jobs',
+  '5 19 * * *',
+  $job$update public.jobs set status = 'Expired', updated_at = now() where status in ('Published','Open','Closing Soon','Coming Soon') and deadline < (now() at time zone 'Asia/Karachi')::date;$job$
+);
+update public.jobs set status = 'Expired', updated_at = now()
+where status in ('Published','Open','Closing Soon','Coming Soon')
+  and deadline < (now() at time zone 'Asia/Karachi')::date;
 
 drop policy if exists "Admins manage jobs" on jobs;
 create policy "Admins manage jobs" on jobs

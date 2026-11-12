@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { categories } from '../data/jobs'
 import { jobs as seedJobs } from '../data/jobs'
 import { isSupabaseConfigured, supabase } from './supabase'
+import { normalizeImageUrl } from './imageUrl'
 import type { Job } from '../types'
 
 const storageKey = 'jobsite-jobs'
@@ -43,7 +44,7 @@ function fromDatabaseRow(row: Record<string, unknown>): Job {
     startDate: String(row.start_date ?? now),
     deadline: String(row.deadline ?? now),
     status: String(row.status ?? 'Published') as Job['status'],
-    thumbnailUrl: String(row.thumbnail_url ?? ''),
+    thumbnailUrl: normalizeImageUrl(String(row.thumbnail_url ?? '')),
     advertisementUrl: String(row.advertisement_url ?? ''),
     officialApplyUrl: String(row.official_apply_url ?? ''),
     officialSourceUrl: String(row.official_source_url ?? ''),

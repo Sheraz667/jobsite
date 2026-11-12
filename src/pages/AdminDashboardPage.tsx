@@ -1,4 +1,4 @@
-import { BookOpenText, BriefcaseBusiness, CheckCircle2, ClipboardCheck, FileText, GraduationCap, Megaphone, PencilLine, Tags, Trash2, XCircle } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowRight, BookOpenText, BriefcaseBusiness, CheckCircle2, ClipboardCheck, Clock3, FileText, GraduationCap, KeyRound, LockKeyhole, MailCheck, Megaphone, PencilLine, Tags, Trash2, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { RichTextEditor } from '../components/RichTextEditor'
 import { ContentLinksEditor } from '../components/ContentLinksEditor'
@@ -10,6 +10,7 @@ import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { reloadSponsors, saveSponsors, useSponsors } from '../lib/sponsorStore'
 import { reloadUpdates, saveUpdates, useUpdates } from '../lib/updateStore'
+import { isJobDeadlinePassed, isJobUnavailable, pakistanToday } from '../lib/jobDeadline'
 import type { CategoryDefinition, ContentLink, Job, JobStatus } from '../types'
 import type { BlogArticle, BlogSocialPlatform, BlogStatus } from '../types.blog'
 import type { Sponsor, SponsorSocialPlatform, SponsorStatus } from '../types.sponsor'
@@ -55,7 +56,7 @@ const sponsorFormDefaults = {
   socialLinks: { instagram: '', facebook: '', pinterest: '', tiktok: '' },
 }
 
-const updateFormDefaults = { title: '', department: '', details: '', sourceUrl: '', actionUrl: '' }
+const updateFormDefaults = { title: '', department: '', details: '', thumbnailUrl: '', sourceUrl: '', actionUrl: '' }
 
 type SponsorExpiryOption = '' | '3' | '7' | '10'
 
@@ -69,6 +70,14 @@ export function AdminDashboardPage() {
   const sponsorsList = useSponsors()
   const updatesList = useUpdates()
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+  const [failedLoginAttempts, setFailedLoginAttempts] = useState(0)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
+  const [recoveryPassword, setRecoveryPassword] = useState('')
+  const [recoveryPasswordConfirm, setRecoveryPasswordConfirm] = useState('')
+  const [recoveryMessage, setRecoveryMessage] = useState('')
+  const [recoveryError, setRecoveryError] = useState('')
+  const [recoveryPending, setRecoveryPending] = useState(false)
   const [formData, setFormData] = useState(formDefaults)
   const [previewMode, setPreviewMode] = useState(false)
   const [pendingAction, setPendingAction] = useState<'Draft' | 'Published'>('Draft')
@@ -78,12 +87,14 @@ export function AdminDashboardPage() {
   const [blogStatus, setBlogStatus] = useState<BlogStatus>('Draft')
   const [editingBlogId, setEditingBlogId] = useState<string | null>(null)
   const [blogError, setBlogError] = useState('')
+  const [blogAdditionalLinks, setBlogAdditionalLinks] = useState<ContentLink[]>([])
   const [loginError, setLoginError] = useState('')
   const [sponsorForm, setSponsorForm] = useState(sponsorFormDefaults)
   const [sponsorStatus, setSponsorStatus] = useState<SponsorStatus>('Draft')
   const [sponsorExpiryDays, setSponsorExpiryDays] = useState<SponsorExpiryOption>('')
   const [editingSponsorId, setEditingSponsorId] = useState<string | null>(null)
   const [sponsorError, setSponsorError] = useState('')
+  const [sponsorAdditionalLinks, setSponsorAdditionalLinks] = useState<ContentLink[]>([])
   const [categoryForm, setCategoryForm] = useState({ name: '', description: '' })
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryError, setCategoryError] = useState('')
@@ -95,6 +106,16 @@ export function AdminDashboardPage() {
 
   useEffect(() => {
     let active = true
+    let recoverySessionActive = false
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' && active) {
+        recoverySessionActive = true
+        setIsPasswordRecovery(true)
+        setAuthPending(false)
+        setRecoveryError('')
+        setRecoveryMessage('Choose a new password for your admin account.')
+      }
+    })
 
     const verifyAdminSession = async () => {
       if (!isSupabaseConfigured) {
@@ -103,6 +124,13 @@ export function AdminDashboardPage() {
       }
 
       const { data: { session } } = await supabase.auth.getSession()
+      if (recoverySessionActive) {
+        if (active) {
+          setIsPasswordRecovery(true)
+          setAuthPending(false)
+        }
+        return
+      }
       if (!session) {
         if (active) setAuthPending(false)
         return
@@ -114,6 +142,14 @@ export function AdminDashboardPage() {
         .eq('user_id', session.user.id)
         .maybeSingle()
 
+      if (recoverySessionActive) {
+        if (active) {
+          setIsPasswordRecovery(true)
+          setAuthPending(false)
+        }
+        return
+      }
+
       if (active) {
         setIsAuthenticated(profile?.role === 'admin')
         setAuthPending(false)
@@ -122,7 +158,10 @@ export function AdminDashboardPage() {
     }
 
     void verifyAdminSession()
-    return () => { active = false }
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -135,6 +174,7 @@ export function AdminDashboardPage() {
 
     const { data, error } = await supabase.auth.signInWithPassword(loginForm)
     if (error || !data.user) {
+      setFailedLoginAttempts((attempts) => attempts + 1)
       setLoginError('Email or password is incorrect.')
       return
     }
@@ -151,6 +191,70 @@ export function AdminDashboardPage() {
       return
     }
 
+    setFailedLoginAttempts(0)
+    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates()])
+    setIsAuthenticated(true)
+  }
+
+  const handlePasswordResetRequest = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setRecoveryError('')
+    setRecoveryMessage('')
+    if (!isSupabaseConfigured) {
+      setRecoveryError('Password recovery is not configured.')
+      return
+    }
+    if (!loginForm.email.trim()) {
+      setRecoveryError('Enter your admin email address first.')
+      return
+    }
+    setRecoveryPending(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(loginForm.email.trim(), {
+      redirectTo: `${window.location.origin}/admin`,
+    })
+    setRecoveryPending(false)
+    if (error) {
+      setRecoveryError('Could not send the reset email. Check the email address and Supabase email settings.')
+      return
+    }
+    setRecoveryMessage('If this email belongs to an admin account, a password reset link has been sent.')
+  }
+
+  const handlePasswordRecovery = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setRecoveryError('')
+    if (recoveryPassword.length < 8) {
+      setRecoveryError('Use at least 8 characters for the new password.')
+      return
+    }
+    if (recoveryPassword !== recoveryPasswordConfirm) {
+      setRecoveryError('The passwords do not match.')
+      return
+    }
+    setRecoveryPending(true)
+    const { error } = await supabase.auth.updateUser({ password: recoveryPassword })
+    if (error) {
+      setRecoveryPending(false)
+      setRecoveryError('Could not update the password. Request a fresh reset link and try again.')
+      return
+    }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setRecoveryPending(false)
+      setRecoveryError('Your reset session expired. Request a new reset link.')
+      return
+    }
+    const { data: profile } = await supabase.from('admin_profiles').select('role').eq('user_id', user.id).maybeSingle()
+    if (profile?.role !== 'admin') {
+      await supabase.auth.signOut()
+      setIsPasswordRecovery(false)
+      setRecoveryPending(false)
+      setRecoveryError('This account does not have admin access.')
+      return
+    }
+    setIsPasswordRecovery(false)
+    setRecoveryPending(false)
+    setRecoveryMessage('Password updated. Your admin workspace is ready.')
     await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates()])
     setIsAuthenticated(true)
   }
@@ -250,6 +354,7 @@ export function AdminDashboardPage() {
       title: updateForm.title.trim(),
       department: updateForm.department.trim(),
       details: updateForm.details.trim(),
+      thumbnailUrl: normalizeImageUrl(updateForm.thumbnailUrl),
       sourceUrl: updateForm.sourceUrl.trim(),
       actionUrl: updateForm.actionUrl.trim(),
       additionalLinks: additionalLinks.map((link) => ({ ...link, label: link.label.trim(), url: link.url.trim() })),
@@ -294,6 +399,11 @@ export function AdminDashboardPage() {
       setSponsorError('Social profile links must be full http:// or https:// URLs.')
       return
     }
+    const additionalLinks = sponsorAdditionalLinks.filter((link) => link.label.trim() || link.url.trim())
+    if (additionalLinks.some((link) => !link.label.trim() || (link.type === 'external' ? !validUrl(link.url.trim()) : !link.url.startsWith('/') || link.url.startsWith('//')))) {
+      setSponsorError('Each extra link needs a label and a valid site path or http:// / https:// URL.')
+      return
+    }
 
     const now = new Date().toISOString().slice(0, 10)
     const previous = sponsorsList.find((sponsor) => sponsor.id === editingSponsorId)
@@ -310,6 +420,7 @@ export function AdminDashboardPage() {
       thumbnailUrl: normalizeImageUrl(sponsorForm.thumbnailUrl),
       destinationUrl: sponsorForm.destinationUrl.trim(),
       socialLinks: Object.fromEntries(Object.entries(sponsorForm.socialLinks).filter(([, value]) => value.trim()).map(([platform, value]) => [platform, value.trim()])) as Sponsor['socialLinks'],
+      additionalLinks: additionalLinks.map((link) => ({ ...link, label: link.label.trim(), url: link.url.trim() })),
       status,
       expiryDays,
       expiresAt,
@@ -324,18 +435,20 @@ export function AdminDashboardPage() {
       return
     }
     setSponsorForm(sponsorFormDefaults)
+    setSponsorAdditionalLinks([])
     setEditingSponsorId(null)
     setSponsorExpiryDays('')
     setSponsorError('')
   }
 
+  const today = pakistanToday()
   const jobStats = [
     ['Total Jobs', jobsList.length],
-    ['Published', jobsList.filter((job) => job.status === 'Published').length],
-    ['Active', jobsList.filter((job) => ['Open', 'Closing Soon', 'Coming Soon'].includes(job.status)).length],
+    ['Published', jobsList.filter((job) => job.status === 'Published' && !isJobDeadlinePassed(job, today)).length],
+    ['Active', jobsList.filter((job) => ['Open', 'Closing Soon', 'Coming Soon', 'Published'].includes(job.status) && !isJobUnavailable(job, today)).length],
     ['Closed', jobsList.filter((job) => job.status === 'Closed').length],
     ['Drafts', jobsList.filter((job) => job.status === 'Draft').length],
-    ['Expired', jobsList.filter((job) => job.status === 'Expired').length],
+    ['Expired', jobsList.filter((job) => job.status === 'Expired' || isJobDeadlinePassed(job, today)).length],
   ]
 
   const blogStats = [
@@ -439,6 +552,14 @@ export function AdminDashboardPage() {
       setBlogError('Social links must be full http:// or https:// URLs.')
       return
     }
+    const additionalLinks = blogAdditionalLinks.filter((link) => link.label.trim() || link.url.trim())
+    const validHttpUrl = (value: string) => {
+      try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
+    }
+    if (additionalLinks.some((link) => !link.label.trim() || (link.type === 'external' ? !validHttpUrl(link.url.trim()) : !link.url.startsWith('/') || link.url.startsWith('//')))) {
+      setBlogError('Each extra link needs a label and a valid site path or http:// / https:// URL.')
+      return
+    }
 
     const now = new Date().toISOString().slice(0, 10)
     const previousBlog = blogsList.find((blog) => blog.id === editingBlogId)
@@ -450,6 +571,7 @@ export function AdminDashboardPage() {
       content: safeContent,
       thumbnailUrl: normalizeImageUrl(blogForm.thumbnailUrl) || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=960&q=65',
       socialLinks: Object.fromEntries(Object.entries(blogForm.socialLinks).filter(([, value]) => value.trim())) as BlogArticle['socialLinks'],
+      additionalLinks: additionalLinks.map((link) => ({ ...link, label: link.label.trim(), url: link.url.trim() })),
       status,
       createdAt: previousBlog?.createdAt ?? now,
       updatedAt: now,
@@ -459,13 +581,14 @@ export function AdminDashboardPage() {
       ? current.map((blog) => blog.id === editingBlogId ? article : blog)
       : [article, ...current])
     setBlogForm(blogFormDefaults)
+    setBlogAdditionalLinks([])
     setEditingBlogId(null)
     setBlogError('')
   }
 
   const handleClose = (jobId: string) => {
     saveJobs((current) =>
-      current.map((job) => (job.id === jobId ? { ...job, status: 'Closed', updatedAt: '2026-11-11' } : job)),
+      current.map((job) => (job.id === jobId ? { ...job, status: 'Closed', updatedAt: today } : job)),
     )
   }
 
@@ -477,111 +600,168 @@ export function AdminDashboardPage() {
     return <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 text-sm text-slate-600">Checking admin access…</div>
   }
 
-  if (!isAuthenticated) {
+  if (isPasswordRecovery) {
     return (
-      <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center px-4 py-12">
-        <form onSubmit={handleLogin} className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50">
-          <div className="mb-6 text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">Secure access</p>
-            <h1 className="mt-2 text-3xl font-black text-slate-900">Admin login</h1>
-            {!isSupabaseConfigured && <p className="mt-3 text-sm leading-6 text-amber-800">Admin access is locked until Supabase is configured. Add the project URL/key, create an Auth user, and grant it the admin role.</p>}
-          </div>
-
-          <div className="space-y-4">
-            <label className="block text-sm font-medium text-slate-700">
-              Email
-              <input value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" placeholder="admin@jobsportal.pk" />
+      <div className="mx-auto flex min-h-[75vh] max-w-md items-center justify-center px-4 py-10">
+        <form onSubmit={handlePasswordRecovery} className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-emerald-950/5 sm:p-8">
+          <div className="mb-6 flex size-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-900"><KeyRound className="size-6" /></div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Admin account recovery</p>
+          <h1 className="mt-2 text-2xl font-black text-slate-950">Set a new password</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Choose a strong password with at least 8 characters.</p>
+          <div className="mt-6 space-y-4">
+            <label className="block text-sm font-semibold text-slate-700">New password
+              <input autoComplete="new-password" type="password" minLength={8} required value={recoveryPassword} onChange={(event) => setRecoveryPassword(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" />
             </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Password
-              <input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" placeholder="••••••••" />
+            <label className="block text-sm font-semibold text-slate-700">Confirm new password
+              <input autoComplete="new-password" type="password" minLength={8} required value={recoveryPasswordConfirm} onChange={(event) => setRecoveryPasswordConfirm(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" />
             </label>
           </div>
-
-          <button type="submit" disabled={!isSupabaseConfigured} className="mt-6 w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
-            Access dashboard
+          {recoveryError && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{recoveryError}</p>}
+          <button type="submit" disabled={recoveryPending} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">
+            <LockKeyhole className="size-4" />{recoveryPending ? 'Updating password…' : 'Update password'}
           </button>
-
-          {loginError && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loginError}</p>}
         </form>
       </div>
     )
   }
 
+  if (!isAuthenticated) {
+    return (
+      <div className="mx-auto flex min-h-[75vh] max-w-md items-center justify-center px-4 py-10">
+        <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-emerald-950/5">
+          <div className="border-b border-emerald-900/10 bg-[#f5f8f6] px-6 py-6 sm:px-8">
+            <div className="mb-5 flex size-12 items-center justify-center rounded-xl bg-emerald-900 text-[#f7d154]"><LockKeyhole className="size-6" /></div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Restricted workspace</p>
+            <h1 className="mt-2 text-2xl font-black text-slate-950">Admin sign in</h1>
+            <p className="mt-1 text-sm text-slate-600">Use your authorized admin account to continue.</p>
+          </div>
+
+          <div className="p-6 sm:p-8">
+            {!showForgotPassword ? (
+              <form onSubmit={handleLogin} className="space-y-4">
+                <label className="block text-sm font-semibold text-slate-700">Admin email
+                  <input autoComplete="username" type="email" required value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" placeholder="you@example.com" />
+                </label>
+                <label className="block text-sm font-semibold text-slate-700">Password
+                  <input autoComplete="current-password" type="password" required value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" placeholder="Enter your password" />
+                </label>
+                {!isSupabaseConfigured && <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm leading-5 text-amber-900">Admin access is unavailable until Supabase URL and anon key are configured.</p>}
+                {loginError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{loginError}</p>}
+                {failedLoginAttempts >= 5 && (
+                  <button type="button" onClick={() => { setShowForgotPassword(true); setRecoveryError(''); setRecoveryMessage('') }} className="inline-flex items-center gap-2 text-sm font-bold text-emerald-800 hover:text-emerald-950">
+                    <KeyRound className="size-4" /> Forgot password?
+                  </button>
+                )}
+                <button type="submit" disabled={!isSupabaseConfigured} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+                  Sign in <ArrowRight className="size-4" />
+                </button>
+                {failedLoginAttempts > 0 && <p className="text-center text-xs text-slate-500">Failed attempts: {failedLoginAttempts}</p>}
+              </form>
+            ) : (
+              <form onSubmit={handlePasswordResetRequest} className="space-y-4">
+                <button type="button" onClick={() => { setShowForgotPassword(false); setRecoveryError(''); setRecoveryMessage('') }} className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-950"><ArrowLeft className="size-4" /> Back to sign in</button>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-950">Reset admin password</h2>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">Enter the email for your admin account. We’ll send a secure reset link if it’s authorized.</p>
+                </div>
+                <label className="block text-sm font-semibold text-slate-700">Admin email
+                  <input autoComplete="email" type="email" required value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" placeholder="you@example.com" />
+                </label>
+                {recoveryError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{recoveryError}</p>}
+                {recoveryMessage && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900"><span className="inline-flex items-center gap-2"><MailCheck className="size-4 shrink-0" />{recoveryMessage}</span></p>}
+                <button type="submit" disabled={!isSupabaseConfigured || recoveryPending} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-50">
+                  <MailCheck className="size-4" />{recoveryPending ? 'Sending link…' : 'Send reset link'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const sectionItems = [
+    { id: 'jobs', label: 'Jobs', icon: BriefcaseBusiness, count: jobsList.length },
+    { id: 'admissions', label: 'Admissions', icon: GraduationCap, count: updatesList.filter((item) => item.kind === 'admissions').length },
+    { id: 'results', label: 'Results', icon: ClipboardCheck, count: updatesList.filter((item) => item.kind === 'results').length },
+    { id: 'categories', label: 'Job types', icon: Tags, count: categoriesList.length },
+    { id: 'blogs', label: 'Blogs', icon: BookOpenText, count: blogsList.length },
+    { id: 'sponsors', label: 'Sponsors', icon: Megaphone, count: sponsorsList.length },
+  ] as const
+  const activeSectionItem = sectionItems.find((section) => section.id === activeSection)
+  const ActiveSectionIcon = activeSectionItem?.icon ?? Activity
+  const activeSectionLabel = activeSectionItem?.label ?? 'Dashboard'
+  const sectionDescriptions: Record<(typeof sectionItems)[number]['id'], string> = {
+    jobs: 'Create listings, review deadlines, and manage applications.',
+    admissions: 'Publish institute announcements and application links.',
+    results: 'Share verified result notices and official result links.',
+    categories: 'Manage the job types shown in navigation and filters.',
+    blogs: 'Write, edit, and publish career articles.',
+    sponsors: 'Manage sponsored placements and their visibility.',
+  }
+  const sectionStats = activeSection === 'jobs'
+    ? jobStats
+    : activeSection === 'blogs'
+      ? blogStats
+      : activeSection === 'sponsors'
+        ? sponsorStats
+        : activeSection === 'admissions'
+          ? academicStats('admissions')
+          : activeSection === 'results'
+            ? academicStats('results')
+            : [['Job Types', categoriesList.length]]
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">Dashboard</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-900">Job management</h1>
+    <div className="mx-auto max-w-[90rem] px-4 py-8 sm:px-6 lg:px-8">
+      <header className="mb-6 flex flex-col gap-4 rounded-xl border border-slate-200 border-t-4 border-t-emerald-800 bg-white px-5 py-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-lg bg-emerald-900 text-[#f7d154] shadow-sm"><ActiveSectionIcon className="size-5" /></div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-800">PakJobInfo · Admin workspace</p>
+            <h1 className="mt-0.5 text-2xl font-black leading-7 text-slate-950">{activeSectionLabel}</h1>
+            <p className="mt-1 text-sm text-slate-500">{sectionDescriptions[activeSectionItem?.id ?? 'jobs']}</p>
+          </div>
         </div>
         <button onClick={() => {
           void supabase.auth.signOut()
           setIsAuthenticated(false)
-        }} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Log out
+        }} className="inline-flex items-center justify-center gap-2 self-start rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-800 sm:self-auto">
+          <XCircle className="size-4" /> Log out
         </button>
+      </header>
+
+      <div className={`mb-7 grid grid-cols-2 gap-3 ${activeSection === 'jobs' ? 'sm:grid-cols-3 xl:grid-cols-6' : 'sm:grid-cols-3'}`}>
+        {sectionStats.map(([label, value]) => {
+          const StatIcon = label === 'Active' || label === 'Published' ? CheckCircle2 : label === 'Expired' || label === 'Closed' ? Clock3 : label === 'Drafts' ? FileText : Activity
+          return (
+            <article key={label} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm sm:px-4">
+              <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${label === 'Expired' || label === 'Closed' ? 'bg-rose-50 text-rose-700' : label === 'Active' || label === 'Published' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>
+                <StatIcon className="size-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold text-slate-500">{label}</span>
+                <span className="block text-xl font-black tabular-nums leading-6 text-slate-950">{value}</span>
+              </span>
+            </article>
+          )
+        })}
       </div>
 
-      <div className={`mb-8 grid gap-4 ${activeSection === 'jobs' ? 'md:grid-cols-3 xl:grid-cols-6' : 'md:grid-cols-3'}`}>
-        {(activeSection === 'jobs' ? jobStats : activeSection === 'blogs' ? blogStats : activeSection === 'sponsors' ? sponsorStats : activeSection === 'admissions' ? academicStats('admissions') : activeSection === 'results' ? academicStats('results') : [['Job Types', categoriesList.length]]).map(([label, value]) => (
-          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">{label}</p>
-            <p className="mt-2 text-3xl font-black text-slate-900">{value}</p>
+      <div className="grid items-start gap-5 lg:grid-cols-[15rem_minmax(0,1fr)]">
+        <nav aria-label="Admin sections" className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+          <p className="px-3 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Manage content</p>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:flex lg:flex-col">
+            {sectionItems.map(({ id, label, icon: Icon, count }) => {
+              const isActive = activeSection === id
+              return (
+                <button key={id} type="button" onClick={() => setActiveSection(id)} aria-current={isActive ? 'page' : undefined} className={`group flex min-w-0 items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition lg:w-full ${isActive ? 'border-emerald-900 bg-emerald-900 text-white shadow-sm' : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-950'}`}>
+                  <span className={`flex size-8 shrink-0 items-center justify-center rounded-md ${isActive ? 'bg-white/10 text-[#f7d154]' : 'bg-slate-100 text-slate-500 group-hover:text-emerald-800'}`}><Icon className="size-4" /></span>
+                  <span className="min-w-0 flex-1 truncate">{label}</span>
+                  <span className={`hidden rounded-md px-1.5 py-0.5 text-[11px] tabular-nums sm:inline-flex ${isActive ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-500'}`}>{count}</span>
+                </button>
+              )
+            })}
           </div>
-        ))}
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
-        <nav aria-label="Admin sections" className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-3">
-          <button
-            type="button"
-            onClick={() => setActiveSection('jobs')}
-            aria-current={activeSection === 'jobs' ? 'page' : undefined}
-            className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition lg:flex-none ${activeSection === 'jobs' ? 'border-[#f7d154] bg-[#013d2d] text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-700/30 hover:bg-emerald-50'}`}
-          >
-            <BriefcaseBusiness className="h-5 w-5" />
-            Jobs
-            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'jobs' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{jobsList.length}</span>
-          </button>
-          <button type="button" onClick={() => setActiveSection('admissions')} aria-current={activeSection === 'admissions' ? 'page' : undefined} className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition lg:flex-none ${activeSection === 'admissions' ? 'border-[#f7d154] bg-[#013d2d] text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-700/30 hover:bg-emerald-50'}`}>
-            <GraduationCap className="h-5 w-5" /> Admissions
-            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'admissions' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{updatesList.filter((item) => item.kind === 'admissions').length}</span>
-          </button>
-          <button type="button" onClick={() => setActiveSection('results')} aria-current={activeSection === 'results' ? 'page' : undefined} className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition lg:flex-none ${activeSection === 'results' ? 'border-[#f7d154] bg-[#013d2d] text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-700/30 hover:bg-emerald-50'}`}>
-            <ClipboardCheck className="h-5 w-5" /> Results
-            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'results' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{updatesList.filter((item) => item.kind === 'results').length}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSection('categories')}
-            aria-current={activeSection === 'categories' ? 'page' : undefined}
-            className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition lg:flex-none ${activeSection === 'categories' ? 'border-[#f7d154] bg-[#013d2d] text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-700/30 hover:bg-emerald-50'}`}
-          >
-            <Tags className="h-5 w-5" />
-            Job Types
-            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'categories' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{categoriesList.length}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSection('blogs')}
-            aria-current={activeSection === 'blogs' ? 'page' : undefined}
-            className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition lg:flex-none ${activeSection === 'blogs' ? 'border-[#f7d154] bg-[#013d2d] text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-700/30 hover:bg-emerald-50'}`}
-          >
-            <BookOpenText className="h-5 w-5" />
-            Blogs
-            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'blogs' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{blogsList.length}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSection('sponsors')}
-            aria-current={activeSection === 'sponsors' ? 'page' : undefined}
-            className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition lg:flex-none ${activeSection === 'sponsors' ? 'border-[#f7d154] bg-[#013d2d] text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-700/30 hover:bg-emerald-50'}`}
-          >
-            <Megaphone className="h-5 w-5" />
-            Sponsors
-            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'sponsors' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{sponsorsList.length}</span>
-          </button>
         </nav>
 
         <div className="min-w-0">
@@ -713,7 +893,7 @@ export function AdminDashboardPage() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-lg font-bold text-slate-900">{job.title}</p>
-                    <p className="text-sm text-slate-600">{job.department} • {job.status}</p>
+                    <p className="text-sm text-slate-600">{job.department} • {isJobDeadlinePassed(job, today) ? 'Expired' : job.status}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => { setEditingId(job.id); setFormData({ title: job.title, department: job.department, category: job.category, description: job.description, thumbnailUrl: job.thumbnailUrl, officialSourceUrl: job.officialSourceUrl, officialApplyUrl: job.officialApplyUrl, location: job.location, province: job.province, city: job.city, qualification: job.qualification, vacancies: String(job.vacancies), deadline: job.deadline, status: job.status }); setJobAdditionalLinks(job.additionalLinks ?? []); setPreviewMode(false) }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
@@ -756,6 +936,10 @@ export function AdminDashboardPage() {
               <label className="block text-sm font-medium text-slate-700">Details
                 <textarea rows={5} value={updateForm.details} onChange={(event) => setUpdateForm((current) => ({ ...current, details: event.target.value }))} placeholder="Add key dates, eligibility, roll number, or other useful details" className="mt-1 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
               </label>
+              <label className="block text-sm font-medium text-slate-700">Thumbnail image URL (Google Drive share link supported)
+                <input value={updateForm.thumbnailUrl} onChange={(event) => setUpdateForm((current) => ({ ...current, thumbnailUrl: event.target.value }))} placeholder="Paste a public Google Drive image link or direct image URL" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+              </label>
+              {updateForm.thumbnailUrl && <img src={normalizeImageUrl(updateForm.thumbnailUrl)} alt={`${kind} thumbnail preview`} className="h-40 w-full rounded-xl bg-slate-50 object-cover" />}
               <label className="block text-sm font-medium text-slate-700">Official source URL
                 <input type="url" value={updateForm.sourceUrl} onChange={(event) => setUpdateForm((current) => ({ ...current, sourceUrl: event.target.value }))} placeholder="https://official-department.gov.pk/notice" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
               </label>
@@ -767,7 +951,7 @@ export function AdminDashboardPage() {
               <div className="flex flex-wrap gap-3">
                 <button type="button" onClick={() => { void handleSaveUpdate(kind, 'Draft') }} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Save draft</button>
                 <button type="button" onClick={() => { void handleSaveUpdate(kind, 'Published') }} className="rounded-xl bg-[#013d2d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#005b3f]">Publish {kind === 'results' ? 'result' : 'admission'}</button>
-                {editingUpdateId && <button type="button" onClick={() => { setUpdateForm(updateFormDefaults); setEditingUpdateId(null); setUpdateError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
+                {editingUpdateId && <button type="button" onClick={() => { setUpdateForm(updateFormDefaults); setUpdateAdditionalLinks([]); setEditingUpdateId(null); setUpdateError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
               </div>
             </div>
           </div>
@@ -778,13 +962,14 @@ export function AdminDashboardPage() {
             <div className="mt-5 space-y-3">
               {records.length ? records.map((item) => (
                 <article key={item.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-start">
+                  {item.thumbnailUrl && <img src={normalizeImageUrl(item.thumbnailUrl)} alt="" className="h-20 w-20 shrink-0 rounded-lg bg-white object-cover" />}
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-slate-900">{item.title}</h3>
                     <p className="text-sm text-slate-600">{item.department} · {item.status} · {item.updatedAt}</p>
                     <p className="mt-2 line-clamp-2 text-sm text-slate-500">{item.details}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => { setEditingUpdateId(item.id); setUpdateForm({ title: item.title, department: item.department, details: item.details, sourceUrl: item.sourceUrl, actionUrl: item.actionUrl }); setUpdateAdditionalLinks(item.additionalLinks ?? []); setUpdateError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                    <button type="button" onClick={() => { setEditingUpdateId(item.id); setUpdateForm({ title: item.title, department: item.department, details: item.details, thumbnailUrl: item.thumbnailUrl, sourceUrl: item.sourceUrl, actionUrl: item.actionUrl }); setUpdateAdditionalLinks(item.additionalLinks ?? []); setUpdateError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
                     <button type="button" onClick={() => { void saveUpdates((current) => current.filter((entry) => entry.id !== item.id)) }} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>
                   </div>
                 </article>
@@ -874,12 +1059,13 @@ export function AdminDashboardPage() {
               ))}
               </div>
             </fieldset>
+            <ContentLinksEditor links={blogAdditionalLinks} onChange={setBlogAdditionalLinks} />
             {blogForm.thumbnailUrl && <img src={normalizeImageUrl(blogForm.thumbnailUrl)} alt="Article thumbnail preview" className="h-40 w-full rounded-xl object-cover" />}
             {blogError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{blogError}</p>}
             <div className="flex flex-wrap gap-3">
               <button type="button" onClick={() => { setBlogStatus('Draft'); handleSaveBlog('Draft') }} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold ${blogStatus === 'Draft' ? 'border-[#005b3f] bg-emerald-50 text-[#013d2d]' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}>Save draft</button>
               <button type="button" onClick={() => { setBlogStatus('Published'); handleSaveBlog('Published') }} className={`rounded-xl px-4 py-2.5 text-sm font-semibold text-white ${blogStatus === 'Published' ? 'bg-[#005b3f] ring-2 ring-[#f7d154]' : 'bg-[#013d2d] hover:bg-[#005b3f]'}`}>Publish article</button>
-              {editingBlogId && <button type="button" onClick={() => { setBlogForm(blogFormDefaults); setEditingBlogId(null); setBlogError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
+              {editingBlogId && <button type="button" onClick={() => { setBlogForm(blogFormDefaults); setBlogAdditionalLinks([]); setEditingBlogId(null); setBlogError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
             </div>
           </div>
         </div>
@@ -896,7 +1082,7 @@ export function AdminDashboardPage() {
                   <p className="text-sm text-slate-600">{blog.status} · {blog.updatedAt}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { setEditingBlogId(blog.id); setBlogForm({ title: blog.title, excerpt: blog.excerpt, content: blog.content, thumbnailUrl: blog.thumbnailUrl, socialLinks: { ...blogFormDefaults.socialLinks, ...blog.socialLinks } }); setBlogStatus(blog.status); setBlogError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                  <button type="button" onClick={() => { setEditingBlogId(blog.id); setBlogForm({ title: blog.title, excerpt: blog.excerpt, content: blog.content, thumbnailUrl: blog.thumbnailUrl, socialLinks: { ...blogFormDefaults.socialLinks, ...blog.socialLinks } }); setBlogAdditionalLinks(blog.additionalLinks ?? []); setBlogStatus(blog.status); setBlogError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
                   <button type="button" onClick={() => saveBlogs((current) => current.filter((item) => item.id !== blog.id))} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>
                 </div>
               </article>
@@ -933,6 +1119,7 @@ export function AdminDashboardPage() {
                 ))}
               </div>
             </fieldset>
+            <ContentLinksEditor links={sponsorAdditionalLinks} onChange={setSponsorAdditionalLinks} />
             <label className="block text-sm font-medium text-slate-700">Close placement after
               <select value={sponsorExpiryDays} onChange={(event) => setSponsorExpiryDays(event.target.value as SponsorExpiryOption)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]">
                 <option value="">No automatic closing</option>
@@ -946,7 +1133,7 @@ export function AdminDashboardPage() {
             <div className="flex flex-wrap gap-3">
               <button type="button" onClick={() => { setSponsorStatus('Draft'); handleSaveSponsor('Draft') }} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold ${sponsorStatus === 'Draft' ? 'border-[#005b3f] bg-emerald-50 text-[#013d2d]' : 'border-slate-300 text-slate-700'}`}>Save draft</button>
               <button type="button" onClick={() => { setSponsorStatus('Published'); handleSaveSponsor('Published') }} className="rounded-xl bg-[#013d2d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#005b3f]">Publish sponsor</button>
-              {editingSponsorId && <button type="button" onClick={() => { setSponsorForm(sponsorFormDefaults); setEditingSponsorId(null); setSponsorError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
+              {editingSponsorId && <button type="button" onClick={() => { setSponsorForm(sponsorFormDefaults); setSponsorAdditionalLinks([]); setEditingSponsorId(null); setSponsorError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
             </div>
           </div>
         </div>
@@ -963,7 +1150,7 @@ export function AdminDashboardPage() {
                   <p className="text-sm text-slate-600">{sponsor.status} · {sponsor.updatedAt}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { setEditingSponsorId(sponsor.id); setSponsorForm({ name: sponsor.name, description: sponsor.description, thumbnailUrl: sponsor.thumbnailUrl, destinationUrl: sponsor.destinationUrl, socialLinks: { ...sponsorFormDefaults.socialLinks, ...sponsor.socialLinks } }); setSponsorStatus(sponsor.status); setSponsorExpiryDays(sponsor.expiryDays ? String(sponsor.expiryDays) as SponsorExpiryOption : ''); setSponsorError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                  <button type="button" onClick={() => { setEditingSponsorId(sponsor.id); setSponsorForm({ name: sponsor.name, description: sponsor.description, thumbnailUrl: sponsor.thumbnailUrl, destinationUrl: sponsor.destinationUrl, socialLinks: { ...sponsorFormDefaults.socialLinks, ...sponsor.socialLinks } }); setSponsorAdditionalLinks(sponsor.additionalLinks ?? []); setSponsorStatus(sponsor.status); setSponsorExpiryDays(sponsor.expiryDays ? String(sponsor.expiryDays) as SponsorExpiryOption : ''); setSponsorError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
                   <button type="button" onClick={() => saveSponsors((current) => current.filter((item) => item.id !== sponsor.id))} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>
                 </div>
               </article>

@@ -2,6 +2,7 @@ import { ChevronDown, ExternalLink, LayoutDashboard, Menu, ShieldCheck } from 'l
 import { useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import brandLogo from '../assets/logo/logo2.png'
+import { ContentLinksList } from './ContentLinksList'
 import { useCategories } from '../lib/categoryStore'
 import { useSponsors } from '../lib/sponsorStore'
 
@@ -227,6 +228,7 @@ export function Layout() {
                         })}
                       </div>
                     )}
+                    <ContentLinksList links={sponsor.additionalLinks} />
                   </article>
                 ))}
               </div>

@@ -2,6 +2,7 @@ import { ArrowRight, CalendarDays, MapPin, ShieldCheck, Sparkles } from 'lucide-
 import { Link, useParams } from 'react-router-dom'
 import { ContentLinksList } from '../components/ContentLinksList'
 import { useCategories } from '../lib/categoryStore'
+import { isJobDeadlinePassed, isJobUnavailable } from '../lib/jobDeadline'
 import { useJobs } from '../lib/jobStore'
 import { usePageMeta } from '../lib/usePageMeta'
 
@@ -11,6 +12,8 @@ export function JobDetailPage() {
   const categories = useCategories()
   const job = jobs.find((item) => item.slug === slug)
   const categoryName = job ? categories.find((category) => category.slug === job.category)?.name ?? job.categoryLabel : ''
+  const applicationClosed = job ? isJobUnavailable(job) : false
+  const deadlinePassed = job ? isJobDeadlinePassed(job) : false
 
   usePageMeta({
     title: job?.seoTitle || (job ? `${job.title} | PakJobInfo` : 'Job opportunity | PakJobInfo'),
@@ -43,17 +46,22 @@ export function JobDetailPage() {
             <h1 className="text-3xl font-black text-slate-900 sm:text-4xl">{job.title}</h1>
             <p className="mt-3 text-lg text-slate-600">{job.department}</p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">{job.status}</span>
+              <span className={`rounded-full px-3 py-1 text-sm font-medium ${applicationClosed ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700'}`}>{deadlinePassed ? 'Closed' : job.status}</span>
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-700">{job.vacancies} vacancies</span>
             </div>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            {applicationClosed && <div role="status" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{deadlinePassed ? 'This job is closed. The application deadline has passed.' : 'Applications for this job are closed.'}</div>}
             <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Application deadline</p>
             <p className="mt-2 text-2xl font-black text-slate-900">{job.deadline}</p>
-            <a href={job.officialApplyUrl} target="_blank" rel="noreferrer" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800">
-              Apply online <ArrowRight className="h-4 w-4" />
-            </a>
+            {applicationClosed ? (
+              <button type="button" disabled className="mt-5 inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-300 px-4 py-3 text-sm font-semibold text-slate-600">Applications closed</button>
+            ) : (
+              <a href={job.officialApplyUrl} target="_blank" rel="noreferrer" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800">
+                Apply online <ArrowRight className="h-4 w-4" />
+              </a>
+            )}
           </div>
         </div>
       </div>

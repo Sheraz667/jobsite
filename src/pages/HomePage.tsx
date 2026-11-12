@@ -2,6 +2,7 @@ import { Building2, CalendarClock, MapPin, Search, Sparkles } from 'lucide-react
 import { Link } from 'react-router-dom'
 import { JobCard } from '../components/JobCard'
 import { useCategories } from '../lib/categoryStore'
+import { isJobUnavailable } from '../lib/jobDeadline'
 import { useJobs } from '../lib/jobStore'
 import heroImage from '../assets/logo/hero.png'
 import { usePageMeta } from '../lib/usePageMeta'
@@ -11,7 +12,7 @@ export function HomePage() {
   usePageMeta({ title: 'PakJobInfo | Jobs & Career Updates in Pakistan', description: 'Find verified government jobs, private sector careers, internships, admissions, and career opportunities across Pakistan.' })
   const jobs = useJobs()
   const categories = useCategories()
-  const publicJobs = jobs.filter((job) => !['Draft', 'Closed', 'Expired'].includes(job.status))
+  const publicJobs = jobs.filter((job) => !isJobUnavailable(job))
   const governmentJobs = publicJobs.filter((job) => job.category === 'government').slice(0, 3)
   const privateJobs = publicJobs.filter((job) => job.category === 'private').slice(0, 3)
   const internships = publicJobs.filter((job) => job.category === 'internship').slice(0, 3)

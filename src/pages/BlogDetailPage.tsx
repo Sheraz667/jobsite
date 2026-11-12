@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight, CalendarDays, ExternalLink } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import { ContentLinksList } from '../components/ContentLinksList'
 import { useBlogs } from '../lib/blogStore'
 import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { usePageMeta } from '../lib/usePageMeta'
@@ -37,6 +38,7 @@ export function BlogDetailPage() {
       </header>
       <img src={article.thumbnailUrl} alt="" className="mt-8 max-h-[30rem] w-full rounded-2xl object-cover" />
       <div className="rich-article mx-auto mt-8 max-w-[72ch] text-base leading-8 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeRichText(article.content) }} />
+      <ContentLinksList links={article.additionalLinks} />
       {article.socialLinks && Object.entries(article.socialLinks).some(([, url]) => Boolean(url)) && (
         <footer className="mt-10 border-t border-slate-200 pt-6">
           <p className="mb-3 text-sm font-semibold text-slate-700">Follow the author</p>

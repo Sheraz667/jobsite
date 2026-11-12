@@ -1,7 +1,8 @@
 import { ArrowRight, BriefcaseBusiness, MapPin } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useCategories } from '../lib/categoryStore'
+import { getCategoriesSnapshot } from '../lib/categoryStore'
+import { isJobDeadlinePassed } from '../lib/jobDeadline'
 import type { Job } from '../types'
 
 interface JobCardProps {
@@ -20,7 +21,8 @@ const statusClasses: Record<string, string> = {
 
 export function JobCard({ job }: JobCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false)
-  const categoryName = useCategories().find((category) => category.slug === job.category)?.name ?? job.categoryLabel
+  const categoryName = getCategoriesSnapshot().find((category) => category.slug === job.category)?.name ?? job.categoryLabel
+  const displayStatus = isJobDeadlinePassed(job) ? 'Closed' : job.status
 
   return (
     <article className="job-card group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(0,91,63,0.14)]">
@@ -35,8 +37,8 @@ export function JobCard({ job }: JobCardProps) {
           onError={() => setImageLoaded(true)}
           className="job-image-content h-48 w-full object-cover"
         />
-        <span className={`absolute left-4 top-4 rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[job.status] ?? 'bg-slate-200 text-slate-700'}`}>
-          {job.status}
+        <span className={`absolute left-4 top-4 rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[displayStatus] ?? 'bg-slate-200 text-slate-700'}`}>
+          {displayStatus}
         </span>
       </div>
 

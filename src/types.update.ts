@@ -9,6 +9,7 @@ export interface AcademicUpdate {
   title: string
   department: string
   details: string
+  thumbnailUrl: string
   sourceUrl: string
   actionUrl: string
   additionalLinks?: ContentLink[]
