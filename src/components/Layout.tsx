@@ -324,8 +324,10 @@ export function Layout() {
           </div>
         </div>
 
-        <div className="border-t border-white/10 py-4 text-center text-sm text-emerald-100/80">
-          © 2026 PakJobInfo. All rights reserved.
+        <div className="flex flex-col items-center justify-center gap-1 border-t border-white/10 px-4 py-4 text-center text-xs text-emerald-100/80 sm:flex-row sm:gap-3 sm:text-sm">
+          <span>© 2026 PakJobInfo. All rights reserved.</span>
+          <span className="hidden text-white/30 sm:inline" aria-hidden="true">|</span>
+          <span>Developed by <a href="https://codenuro.com/" target="_blank" rel="noopener noreferrer" className="font-semibold text-white transition hover:text-[#f7d154] hover:underline">CodeNuro</a></span>
         </div>
       </footer>}
     </div>
