@@ -250,7 +250,7 @@ export function Layout() {
             <ul className="space-y-2 text-sm">
               <li><Link to="/disclaimer" className="hover:text-white">Disclaimer</Link></li>
               <li><Link to="/editorial-policy" className="hover:text-white">Editorial Policy</Link></li>
-              <li><Link to="/sitemap.xml" className="hover:text-white">Sitemap</Link></li>
+              <li><a href="/sitemap.xml" className="hover:text-white">Sitemap</a></li>
             </ul>
           </div>
         </div>
