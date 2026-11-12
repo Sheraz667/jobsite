@@ -51,6 +51,9 @@ export async function reloadBlogs() {
     excerpt: String(row.excerpt),
     content: String(row.content),
     thumbnailUrl: String(row.thumbnail_url ?? ''),
+    socialLinks: row.social_links && typeof row.social_links === 'object'
+      ? row.social_links as BlogArticle['socialLinks']
+      : undefined,
     status: String(row.status) as BlogArticle['status'],
     createdAt: String(row.created_at).slice(0, 10),
     updatedAt: String(row.updated_at).slice(0, 10),
@@ -92,6 +95,7 @@ export function saveBlogs(update: BlogArticle[] | ((current: BlogArticle[]) => B
         excerpt: blog.excerpt,
         content: blog.content,
         thumbnail_url: blog.thumbnailUrl,
+        social_links: blog.socialLinks ?? {},
         status: blog.status,
         updated_at: blog.updatedAt,
       }, { onConflict: 'external_id' })),

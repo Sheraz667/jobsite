@@ -11,7 +11,6 @@ export function HomePage() {
   usePageMeta({ title: 'PakJobInfo | Jobs & Career Updates in Pakistan', description: 'Find verified government jobs, private sector careers, internships, admissions, and career opportunities across Pakistan.' })
   const jobs = useJobs()
   const publicJobs = jobs.filter((job) => !['Draft', 'Closed', 'Expired'].includes(job.status))
-  const latestJobs = [...publicJobs].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 4)
   const governmentJobs = publicJobs.filter((job) => job.category === 'government').slice(0, 3)
   const privateJobs = publicJobs.filter((job) => job.category === 'private').slice(0, 3)
   const internships = publicJobs.filter((job) => job.category === 'internship').slice(0, 3)

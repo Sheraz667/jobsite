@@ -1,4 +1,5 @@
 export type BlogStatus = 'Draft' | 'Published'
+export type BlogSocialPlatform = 'pinterest' | 'tiktok' | 'instagram' | 'facebook' | 'youtube' | 'twitter'
 
 export interface BlogArticle {
   id: string
@@ -7,6 +8,7 @@ export interface BlogArticle {
   excerpt: string
   content: string
   thumbnailUrl: string
+  socialLinks?: Partial<Record<BlogSocialPlatform, string>>
   status: BlogStatus
   createdAt: string
   updatedAt: string

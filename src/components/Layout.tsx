@@ -2,6 +2,7 @@ import { ChevronDown, ExternalLink, LayoutDashboard, Menu, ShieldCheck } from 'l
 import { useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import brandLogo from '../assets/logo/logo2.png'
+import { useSponsors } from '../lib/sponsorStore'
 
 const primaryLinks = [
   { label: 'Home', to: '/' },
@@ -31,6 +32,7 @@ const jobLinks = [
 export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const isAdminRoute = useLocation().pathname.startsWith('/admin')
+  const sponsors = useSponsors().filter((sponsor) => sponsor.status === 'Published')
 
   const quickLinks = useMemo(
     () => [
@@ -176,7 +178,39 @@ export function Layout() {
         <Outlet />
       </main>
 
-      {!isAdminRoute && <footer className="mt-16 border-t border-emerald-900/20 bg-[#013d2d] text-emerald-50">
+      {!isAdminRoute && (
+        <section aria-labelledby="sponsors-heading" className="mx-auto mt-16 max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="border-t border-emerald-900/10 py-10">
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#005b3f]">Partner with PakJobInfo</p>
+                <h2 id="sponsors-heading" className="mt-2 text-2xl font-black text-slate-900">Sponsored</h2>
+              </div>
+              {!sponsors.length && <Link to="/contact" className="text-sm font-semibold text-[#005b3f] hover:underline">Want to advertise here?</Link>}
+            </div>
+            {sponsors.length ? (
+              <div className="flex flex-col items-center gap-5">
+                {sponsors.map((sponsor) => (
+                  <a key={sponsor.id} href={sponsor.destinationUrl} target="_blank" rel="sponsored noopener noreferrer" className="group flex min-h-36 w-full max-w-[680px] items-center gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-800/25 hover:shadow-md sm:gap-6 sm:p-6">
+                    <img src={sponsor.thumbnailUrl} alt="" loading="lazy" className="h-28 w-28 shrink-0 rounded-xl bg-slate-50 object-cover sm:h-36 sm:w-36" />
+                    <span className="min-w-0">
+                      <span className="block truncate font-bold text-slate-900">{sponsor.name}</span>
+                      <span className="mt-1 block line-clamp-2 text-sm leading-5 text-slate-600">{sponsor.description}</span>
+                      <span className="mt-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Sponsored</span>
+                    </span>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <Link to="/contact" className="flex min-h-24 items-center justify-center rounded-2xl border border-dashed border-emerald-800/25 bg-emerald-50/60 px-5 py-6 text-center text-sm text-slate-600 transition hover:border-emerald-800/45 hover:bg-emerald-50">
+                <span><span className="font-semibold text-[#013d2d]">Want to be featured here?</span> Contact us about sponsored placements.</span>
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
+
+      {!isAdminRoute && <footer className="border-t border-emerald-900/20 bg-[#013d2d] text-emerald-50">
         <div className="mx-auto grid max-w-7xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr_1fr] lg:px-8">
           <div>
             <div className="mb-4 flex items-center gap-3">

@@ -67,10 +67,34 @@ create table if not exists blogs (
   excerpt text not null,
   content text not null,
   thumbnail_url text,
+  social_links jsonb not null default '{}'::jsonb,
   status text not null default 'Draft' check (status in ('Draft','Published')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table blogs add column if not exists social_links jsonb not null default '{}'::jsonb;
+
+create table if not exists sponsors (
+  id uuid primary key default gen_random_uuid(),
+  external_id text unique,
+  name text not null,
+  description text not null,
+  thumbnail_url text not null,
+  destination_url text not null,
+  status text not null default 'Draft' check (status in ('Draft','Published')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table sponsors enable row level security;
+create index if not exists sponsors_status_idx on sponsors(status);
+drop policy if exists "Public published sponsors are readable" on sponsors;
+create policy "Public published sponsors are readable" on sponsors for select using (status = 'Published');
+drop policy if exists "Admins manage sponsors" on sponsors;
+create policy "Admins manage sponsors" on sponsors for all
+using (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'))
+with check (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
 
 create table if not exists admin_profiles (
   id uuid primary key default gen_random_uuid(),
@@ -122,19 +146,23 @@ create policy "Admins manage jobs" on jobs
 for all using (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'))
 with check (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
 
+drop policy if exists "Public categories readable" on categories;
 create policy "Public categories readable" on categories for select using (true);
 drop policy if exists "Admins manage categories" on categories;
 create policy "Admins manage categories" on categories for all using (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin')) with check (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
 
+drop policy if exists "Public tags readable" on tags;
 create policy "Public tags readable" on tags for select using (true);
 drop policy if exists "Admins manage tags" on tags;
 create policy "Admins manage tags" on tags for all using (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin')) with check (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
 
+drop policy if exists "Public job tag joins readable" on job_tags;
 create policy "Public job tag joins readable" on job_tags for select using (true);
 drop policy if exists "Admins manage job tags" on job_tags;
 create policy "Admins manage job tags" on job_tags for all using (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin')) with check (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
 
 drop policy if exists "Admins can read profile" on admin_profiles;
+drop policy if exists "Admins can read own profile" on admin_profiles;
 create policy "Admins can read own profile" on admin_profiles for select using (user_id = auth.uid());
 drop policy if exists "Admins manage settings" on website_settings;
 create policy "Admins manage settings" on website_settings for all using (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin')) with check (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));

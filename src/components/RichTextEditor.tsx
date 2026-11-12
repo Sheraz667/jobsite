@@ -14,6 +14,8 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
   const [linkHref, setLinkHref] = useState('')
   const [linkError, setLinkError] = useState('')
+  const articleText = new DOMParser().parseFromString(value, 'text/html').body.textContent?.trim() ?? ''
+  const wordCount = articleText ? articleText.split(/\s+/).length : 0
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
@@ -93,8 +95,11 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         aria-multiline="true"
         data-placeholder="Write your article here. Select text to format it or add a link..."
         onInput={(event) => onChange(event.currentTarget.innerHTML)}
-        className="rich-text-editor min-h-64 p-4 text-sm leading-7 text-slate-800 outline-none"
+        className="rich-text-editor min-h-[32rem] p-5 text-base leading-8 text-slate-800 outline-none"
       />
+      <div className="border-t border-slate-200 px-4 py-2 text-right text-xs text-slate-500" aria-live="polite">
+        {wordCount.toLocaleString()} words
+      </div>
       {linkPanelOpen && (
         <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center">
           <label className="sr-only" htmlFor="article-link-url">Internal path or external URL</label>

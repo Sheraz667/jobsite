@@ -1,4 +1,4 @@
-import { BookOpenText, BriefcaseBusiness, CheckCircle2, FileText, PencilLine, Trash2, XCircle } from 'lucide-react'
+import { BookOpenText, BriefcaseBusiness, CheckCircle2, FileText, Megaphone, PencilLine, Trash2, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { RichTextEditor } from '../components/RichTextEditor'
 import { categories } from '../data/jobs'
@@ -7,8 +7,10 @@ import { normalizeImageUrl } from '../lib/imageUrl'
 import { reloadJobs, saveJobs, useJobs } from '../lib/jobStore'
 import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { reloadSponsors, saveSponsors, useSponsors } from '../lib/sponsorStore'
 import type { Job, JobStatus } from '../types'
-import type { BlogArticle, BlogStatus } from '../types.blog'
+import type { BlogArticle, BlogSocialPlatform, BlogStatus } from '../types.blog'
+import type { Sponsor, SponsorStatus } from '../types.sponsor'
 
 const formDefaults = {
   title: '',
@@ -32,14 +34,30 @@ const blogFormDefaults = {
   excerpt: '',
   content: '',
   thumbnailUrl: '',
+  socialLinks: {
+    pinterest: '',
+    tiktok: '',
+    instagram: '',
+    facebook: '',
+    youtube: '',
+    twitter: '',
+  },
+}
+
+const sponsorFormDefaults = {
+  name: '',
+  description: '',
+  thumbnailUrl: '',
+  destinationUrl: '',
 }
 
 export function AdminDashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authPending, setAuthPending] = useState(true)
-  const [activeSection, setActiveSection] = useState<'jobs' | 'blogs'>('jobs')
+  const [activeSection, setActiveSection] = useState<'jobs' | 'blogs' | 'sponsors'>('jobs')
   const jobsList = useJobs()
   const blogsList = useBlogs()
+  const sponsorsList = useSponsors()
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [formData, setFormData] = useState(formDefaults)
   const [previewMode, setPreviewMode] = useState(false)
@@ -51,6 +69,10 @@ export function AdminDashboardPage() {
   const [editingBlogId, setEditingBlogId] = useState<string | null>(null)
   const [blogError, setBlogError] = useState('')
   const [loginError, setLoginError] = useState('')
+  const [sponsorForm, setSponsorForm] = useState(sponsorFormDefaults)
+  const [sponsorStatus, setSponsorStatus] = useState<SponsorStatus>('Draft')
+  const [editingSponsorId, setEditingSponsorId] = useState<string | null>(null)
+  const [sponsorError, setSponsorError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -84,14 +106,6 @@ export function AdminDashboardPage() {
     return () => { active = false }
   }, [])
 
-  const stats = {
-    total: jobsList.length,
-    published: jobsList.filter((job) => job.status === 'Published' || job.status === 'Open' || job.status === 'Closing Soon').length,
-    draft: jobsList.filter((job) => job.status === 'Draft').length,
-    active: jobsList.filter((job) => ['Open', 'Closing Soon', 'Published'].includes(job.status)).length,
-    expired: jobsList.filter((job) => job.status === 'Expired').length,
-  }
-
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault()
     setLoginError('')
@@ -118,7 +132,7 @@ export function AdminDashboardPage() {
       return
     }
 
-    await Promise.all([reloadJobs(), reloadBlogs()])
+    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors()])
     setIsAuthenticated(true)
   }
 
@@ -129,6 +143,71 @@ export function AdminDashboardPage() {
   const setBlogField = (key: keyof typeof blogFormDefaults, value: string) => {
     setBlogForm((current) => ({ ...current, [key]: value }))
   }
+
+  const setBlogSocialLink = (platform: BlogSocialPlatform, value: string) => {
+    setBlogForm((current) => ({
+      ...current,
+      socialLinks: { ...current.socialLinks, [platform]: value },
+    }))
+  }
+
+  const setSponsorField = (key: keyof typeof sponsorFormDefaults, value: string) => {
+    setSponsorForm((current) => ({ ...current, [key]: value }))
+  }
+
+  const sponsorStats = [
+    ['Total Sponsors', sponsorsList.length],
+    ['Published', sponsorsList.filter((sponsor) => sponsor.status === 'Published').length],
+    ['Drafts', sponsorsList.filter((sponsor) => sponsor.status === 'Draft').length],
+  ]
+
+  const handleSaveSponsor = (status: SponsorStatus) => {
+    const validUrl = (value: string) => {
+      try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
+    }
+    if (!sponsorForm.name.trim() || !sponsorForm.description.trim() || !sponsorForm.thumbnailUrl.trim() || !sponsorForm.destinationUrl.trim()) {
+      setSponsorError('Add a sponsor name, thumbnail, short description, and destination link.')
+      return
+    }
+    if (!validUrl(sponsorForm.destinationUrl)) {
+      setSponsorError('Enter a valid sponsor link beginning with http:// or https://.')
+      return
+    }
+
+    const now = new Date().toISOString().slice(0, 10)
+    const previous = sponsorsList.find((sponsor) => sponsor.id === editingSponsorId)
+    const sponsor: Sponsor = {
+      id: editingSponsorId ?? `sponsor-${Date.now()}`,
+      name: sponsorForm.name.trim(),
+      description: sponsorForm.description.trim(),
+      thumbnailUrl: normalizeImageUrl(sponsorForm.thumbnailUrl),
+      destinationUrl: sponsorForm.destinationUrl.trim(),
+      status,
+      createdAt: previous?.createdAt ?? now,
+      updatedAt: now,
+    }
+    saveSponsors((current) => editingSponsorId
+      ? current.map((item) => item.id === editingSponsorId ? sponsor : item)
+      : [sponsor, ...current])
+    setSponsorForm(sponsorFormDefaults)
+    setEditingSponsorId(null)
+    setSponsorError('')
+  }
+
+  const jobStats = [
+    ['Total Jobs', jobsList.length],
+    ['Published', jobsList.filter((job) => job.status === 'Published').length],
+    ['Active', jobsList.filter((job) => ['Open', 'Closing Soon', 'Coming Soon'].includes(job.status)).length],
+    ['Closed', jobsList.filter((job) => job.status === 'Closed').length],
+    ['Drafts', jobsList.filter((job) => job.status === 'Draft').length],
+    ['Expired', jobsList.filter((job) => job.status === 'Expired').length],
+  ]
+
+  const blogStats = [
+    ['Total Articles', blogsList.length],
+    ['Published', blogsList.filter((blog) => blog.status === 'Published').length],
+    ['Drafts', blogsList.filter((blog) => blog.status === 'Draft').length],
+  ]
 
   const handleSave = (status: 'Draft' | 'Published') => {
     const validHttpUrl = (value: string) => {
@@ -200,6 +279,19 @@ export function AdminDashboardPage() {
       return
     }
 
+    const invalidSocialLink = Object.values(blogForm.socialLinks).some((value) => {
+      if (!value.trim()) return false
+      try {
+        return !['http:', 'https:'].includes(new URL(value).protocol)
+      } catch {
+        return true
+      }
+    })
+    if (invalidSocialLink) {
+      setBlogError('Social links must be full http:// or https:// URLs.')
+      return
+    }
+
     const now = new Date().toISOString().slice(0, 10)
     const previousBlog = blogsList.find((blog) => blog.id === editingBlogId)
     const article: BlogArticle = {
@@ -209,6 +301,7 @@ export function AdminDashboardPage() {
       excerpt: blogForm.excerpt.trim(),
       content: safeContent,
       thumbnailUrl: normalizeImageUrl(blogForm.thumbnailUrl) || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=960&q=65',
+      socialLinks: Object.fromEntries(Object.entries(blogForm.socialLinks).filter(([, value]) => value.trim())) as BlogArticle['socialLinks'],
       status,
       createdAt: previousBlog?.createdAt ?? now,
       updatedAt: now,
@@ -282,14 +375,8 @@ export function AdminDashboardPage() {
         </button>
       </div>
 
-      <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {[
-          ['Total Jobs', stats.total],
-          ['Published Jobs', stats.published],
-          ['Draft Jobs', stats.draft],
-          ['Active Jobs', stats.active],
-          ['Expired Jobs', stats.expired],
-        ].map(([label, value]) => (
+      <div className={`mb-8 grid gap-4 ${activeSection === 'jobs' ? 'md:grid-cols-3 xl:grid-cols-6' : 'md:grid-cols-3'}`}>
+        {(activeSection === 'jobs' ? jobStats : activeSection === 'blogs' ? blogStats : sponsorStats).map(([label, value]) => (
           <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm text-slate-500">{label}</p>
             <p className="mt-2 text-3xl font-black text-slate-900">{value}</p>
@@ -318,6 +405,16 @@ export function AdminDashboardPage() {
             <BookOpenText className="h-5 w-5" />
             Blogs
             <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'blogs' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{blogsList.length}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSection('sponsors')}
+            aria-current={activeSection === 'sponsors' ? 'page' : undefined}
+            className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition lg:flex-none ${activeSection === 'sponsors' ? 'border-[#f7d154] bg-[#013d2d] text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-700/30 hover:bg-emerald-50'}`}
+          >
+            <Megaphone className="h-5 w-5" />
+            Sponsors
+            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'sponsors' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{sponsorsList.length}</span>
           </button>
         </nav>
 
@@ -494,11 +591,28 @@ export function AdminDashboardPage() {
             <label className="block text-sm font-medium text-slate-700">Thumbnail image URL (Google Drive share link supported)
               <input value={blogForm.thumbnailUrl} onChange={(event) => setBlogField('thumbnailUrl', event.target.value)} placeholder="Paste a public Google Drive image link or direct image URL" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
             </label>
+            <fieldset className="rounded-xl border border-slate-200 p-4">
+              <legend className="px-1 text-sm font-semibold text-slate-700">Article social links (optional)</legend>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-3">
+                {([
+                ['pinterest', 'Pinterest'],
+                ['tiktok', 'TikTok'],
+                ['instagram', 'Instagram'],
+                ['facebook', 'Facebook'],
+                ['youtube', 'YouTube'],
+                ['twitter', 'X / Twitter'],
+                ] as const).map(([platform, label]) => (
+                <label key={platform} className="block min-w-0 text-xs font-medium text-slate-600">{label}
+                  <input type="url" value={blogForm.socialLinks[platform]} onChange={(event) => setBlogSocialLink(platform, event.target.value)} placeholder={`https://${platform === 'twitter' ? 'x.com' : platform === 'youtube' ? 'youtube.com' : `${platform}.com`}/...`} className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-300 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500" />
+                </label>
+              ))}
+              </div>
+            </fieldset>
             {blogForm.thumbnailUrl && <img src={normalizeImageUrl(blogForm.thumbnailUrl)} alt="Article thumbnail preview" className="h-40 w-full rounded-xl object-cover" />}
             {blogError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{blogError}</p>}
             <div className="flex flex-wrap gap-3">
-              <button type="button" onClick={() => { setBlogStatus('Draft'); handleSaveBlog('Draft') }} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Save draft</button>
-              <button type="button" onClick={() => { setBlogStatus('Published'); handleSaveBlog('Published') }} className="rounded-xl bg-[#013d2d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#005b3f]">Publish article</button>
+              <button type="button" onClick={() => { setBlogStatus('Draft'); handleSaveBlog('Draft') }} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold ${blogStatus === 'Draft' ? 'border-[#005b3f] bg-emerald-50 text-[#013d2d]' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}>Save draft</button>
+              <button type="button" onClick={() => { setBlogStatus('Published'); handleSaveBlog('Published') }} className={`rounded-xl px-4 py-2.5 text-sm font-semibold text-white ${blogStatus === 'Published' ? 'bg-[#005b3f] ring-2 ring-[#f7d154]' : 'bg-[#013d2d] hover:bg-[#005b3f]'}`}>Publish article</button>
               {editingBlogId && <button type="button" onClick={() => { setBlogForm(blogFormDefaults); setEditingBlogId(null); setBlogError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
             </div>
           </div>
@@ -516,11 +630,59 @@ export function AdminDashboardPage() {
                   <p className="text-sm text-slate-600">{blog.status} · {blog.updatedAt}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { setEditingBlogId(blog.id); setBlogForm({ title: blog.title, excerpt: blog.excerpt, content: blog.content, thumbnailUrl: blog.thumbnailUrl }); setBlogStatus(blog.status); setBlogError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                  <button type="button" onClick={() => { setEditingBlogId(blog.id); setBlogForm({ title: blog.title, excerpt: blog.excerpt, content: blog.content, thumbnailUrl: blog.thumbnailUrl, socialLinks: { ...blogFormDefaults.socialLinks, ...blog.socialLinks } }); setBlogStatus(blog.status); setBlogError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
                   <button type="button" onClick={() => saveBlogs((current) => current.filter((item) => item.id !== blog.id))} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>
                 </div>
               </article>
             )) : <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No articles yet. Create your first post here.</p>}
+          </div>
+        </div>
+      </section>}
+
+      {activeSection === 'sponsors' && <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Sponsored placements</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-900">{editingSponsorId ? 'Edit sponsor' : 'Add a sponsor'}</h2>
+          <div className="mt-5 space-y-4">
+            <label className="block text-sm font-medium text-slate-700">Sponsor name
+              <input value={sponsorForm.name} onChange={(event) => setSponsorField('name', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">Short description
+              <textarea rows={3} value={sponsorForm.description} onChange={(event) => setSponsorField('description', event.target.value)} className="mt-1 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">Thumbnail image URL (Google Drive share link supported)
+              <input value={sponsorForm.thumbnailUrl} onChange={(event) => setSponsorField('thumbnailUrl', event.target.value)} placeholder="Paste a public image URL" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+            </label>
+            {sponsorForm.thumbnailUrl && <img src={normalizeImageUrl(sponsorForm.thumbnailUrl)} alt="Sponsor preview" className="h-40 w-full rounded-xl bg-slate-50 object-contain" />}
+            <label className="block text-sm font-medium text-slate-700">Sponsor destination link
+              <input type="url" value={sponsorForm.destinationUrl} onChange={(event) => setSponsorField('destinationUrl', event.target.value)} placeholder="https://sponsor.example" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+            </label>
+            {sponsorError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{sponsorError}</p>}
+            <div className="flex flex-wrap gap-3">
+              <button type="button" onClick={() => { setSponsorStatus('Draft'); handleSaveSponsor('Draft') }} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold ${sponsorStatus === 'Draft' ? 'border-[#005b3f] bg-emerald-50 text-[#013d2d]' : 'border-slate-300 text-slate-700'}`}>Save draft</button>
+              <button type="button" onClick={() => { setSponsorStatus('Published'); handleSaveSponsor('Published') }} className="rounded-xl bg-[#013d2d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#005b3f]">Publish sponsor</button>
+              {editingSponsorId && <button type="button" onClick={() => { setSponsorForm(sponsorFormDefaults); setEditingSponsorId(null); setSponsorError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Placement management</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-900">Sponsors</h2>
+          <div className="mt-5 space-y-3">
+            {sponsorsList.length ? sponsorsList.map((sponsor) => (
+              <article key={sponsor.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
+                <img src={sponsor.thumbnailUrl} alt="" className="h-20 w-full rounded-xl bg-white object-cover sm:w-28" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-slate-900">{sponsor.name}</h3>
+                  <p className="text-sm text-slate-600">{sponsor.status} · {sponsor.updatedAt}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => { setEditingSponsorId(sponsor.id); setSponsorForm({ name: sponsor.name, description: sponsor.description, thumbnailUrl: sponsor.thumbnailUrl, destinationUrl: sponsor.destinationUrl }); setSponsorStatus(sponsor.status); setSponsorError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                  <button type="button" onClick={() => saveSponsors((current) => current.filter((item) => item.id !== sponsor.id))} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>
+                </div>
+              </article>
+            )) : <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No sponsors yet. Your public page will show the advertising invitation here.</p>}
           </div>
         </div>
       </section>}
