@@ -1,14 +1,17 @@
 import { usePageMeta } from '../lib/usePageMeta'
+import { usePages } from '../lib/pageStore'
 
 interface StaticPageProps {
-  title: string
-  intro: string
-  list?: string[]
-  actionHref?: string
-  actionLabel?: string
+  slug: string
 }
 
-export function StaticPage({ title, intro, list = [], actionHref, actionLabel }: StaticPageProps) {
+export function StaticPage({ slug }: StaticPageProps) {
+  const page = usePages().find((item) => item.slug === slug)
+  const title = page?.title ?? 'Information'
+  const intro = page?.intro ?? ''
+  const list = page?.list ?? []
+  const actionHref = page?.actionHref
+  const actionLabel = page?.actionLabel
   usePageMeta({ title: `${title} | PakJobInfo`, description: intro })
 
   return (

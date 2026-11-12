@@ -156,70 +156,51 @@ img {
 }
 
 .rich-article h2,
-.rich-article h3,
-.rich-text-editor h2,
-.rich-text-editor h3 {
+.rich-article h3 {
   margin: 1.5rem 0 0.75rem;
   color: #0f172a;
   font-weight: 800;
   line-height: 1.3;
 }
 
-.rich-article h2,
-.rich-text-editor h2 {
+.rich-article h2 {
   font-size: 1.5rem;
 }
 
-.rich-article h3,
-.rich-text-editor h3 {
+.rich-article h3 {
   font-size: 1.25rem;
 }
 
 .rich-article p,
 .rich-article ul,
 .rich-article ol,
-.rich-article blockquote,
-.rich-text-editor p,
-.rich-text-editor ul,
-.rich-text-editor ol,
-.rich-text-editor blockquote {
-  margin: 1rem 0;
+.rich-article blockquote {
+  margin: 0.75rem 0;
 }
 
 .rich-article ul,
-.rich-article ol,
-.rich-text-editor ul,
-.rich-text-editor ol {
+.rich-article ol {
   padding-left: 1.5rem;
 }
 
-.rich-article ul,
-.rich-text-editor ul {
+.rich-article ul {
   list-style: disc;
 }
 
-.rich-article ol,
-.rich-text-editor ol {
+.rich-article ol {
   list-style: decimal;
 }
 
-.rich-article a,
-.rich-text-editor a {
+.rich-article a {
   color: #005b3f;
-  font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.rich-article blockquote,
-.rich-text-editor blockquote {
+.rich-article blockquote {
   border-left: 3px solid #f7d154;
   padding-left: 1rem;
   color: #475569;
-}
-
-.rich-article {
-  overflow-wrap: anywhere;
 }
 
 @keyframes image-shimmer {

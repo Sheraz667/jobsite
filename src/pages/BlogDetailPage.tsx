@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, CalendarDays, ExternalLink } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ExternalLink } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { ContentLinksList } from '../components/ContentLinksList'
 import { useBlogs } from '../lib/blogStore'
@@ -7,11 +7,7 @@ import { usePageMeta } from '../lib/usePageMeta'
 
 export function BlogDetailPage() {
   const { slug } = useParams()
-  const publishedArticles = useBlogs()
-    .filter((item) => item.status === 'Published')
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-  const article = publishedArticles.find((item) => item.slug === slug)
-  const latestArticles = publishedArticles.filter((item) => item.id !== article?.id).slice(0, 3)
+  const article = useBlogs().find((item) => item.slug === slug && item.status === 'Published')
 
   usePageMeta({
     title: article ? `${article.title} | PakJobInfo` : 'Career article | PakJobInfo',
@@ -37,7 +33,7 @@ export function BlogDetailPage() {
         <p className="mt-4 text-lg leading-8 text-slate-600">{article.excerpt}</p>
       </header>
       <img src={article.thumbnailUrl} alt="" className="mt-8 max-h-[30rem] w-full rounded-2xl object-cover" />
-      <div className="rich-article mx-auto mt-8 max-w-[72ch] text-base leading-8 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeRichText(article.content) }} />
+      <div className="rich-article mt-8 text-base leading-8 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeRichText(article.content) }} />
       <ContentLinksList links={article.additionalLinks} />
       {article.socialLinks && Object.entries(article.socialLinks).some(([, url]) => Boolean(url)) && (
         <footer className="mt-10 border-t border-slate-200 pt-6">
@@ -58,19 +54,6 @@ export function BlogDetailPage() {
             ))}
           </div>
         </footer>
-      )}
-      {latestArticles.length > 0 && (
-        <section aria-labelledby="latest-articles-heading" className="mt-12 border-t border-slate-200 pt-8">
-          <h2 id="latest-articles-heading" className="text-2xl font-black text-slate-900">Latest articles</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {latestArticles.map((latestArticle) => (
-              <Link key={latestArticle.id} to={`/blogs/${latestArticle.slug}`} className="group flex min-h-28 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-emerald-800/30 hover:bg-emerald-50/50">
-                <span className="font-semibold leading-6 text-slate-800 group-hover:text-[#005b3f]">{latestArticle.title}</span>
-                <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#005b3f]" />
-              </Link>
-            ))}
-          </div>
-        </section>
       )}
     </article>
   )

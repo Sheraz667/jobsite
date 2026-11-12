@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowRight, BookOpenText, BriefcaseBusiness, CheckCircle2, ClipboardCheck, Clock3, FileText, GraduationCap, KeyRound, LockKeyhole, MailCheck, Megaphone, PencilLine, Tags, Trash2, XCircle } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowRight, BookOpenText, BriefcaseBusiness, CheckCircle2, ClipboardCheck, Clock3, FileText, Files, GraduationCap, KeyRound, LockKeyhole, MailCheck, Megaphone, PencilLine, Tags, Trash2, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { RichTextEditor } from '../components/RichTextEditor'
 import { ContentLinksEditor } from '../components/ContentLinksEditor'
@@ -10,11 +10,13 @@ import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { reloadSponsors, saveSponsors, useSponsors } from '../lib/sponsorStore'
 import { reloadUpdates, saveUpdates, useUpdates } from '../lib/updateStore'
+import { defaultPages, reloadPages, savePage, usePages } from '../lib/pageStore'
 import { isJobDeadlinePassed, isJobUnavailable, pakistanToday } from '../lib/jobDeadline'
 import type { CategoryDefinition, ContentLink, Job, JobStatus } from '../types'
 import type { BlogArticle, BlogSocialPlatform, BlogStatus } from '../types.blog'
 import type { Sponsor, SponsorSocialPlatform, SponsorStatus } from '../types.sponsor'
 import type { AcademicUpdate, UpdateKind, UpdateStatus } from '../types.update'
+import type { ManagedPage } from '../types.page'
 
 const formDefaults = {
   title: '',
@@ -63,12 +65,13 @@ type SponsorExpiryOption = '' | '3' | '7' | '10'
 export function AdminDashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authPending, setAuthPending] = useState(true)
-  const [activeSection, setActiveSection] = useState<'jobs' | 'categories' | 'admissions' | 'results' | 'blogs' | 'sponsors'>('jobs')
+  const [activeSection, setActiveSection] = useState<'jobs' | 'categories' | 'admissions' | 'results' | 'blogs' | 'pages' | 'sponsors'>('jobs')
   const jobsList = useJobs()
   const categoriesList = useCategories()
   const blogsList = useBlogs()
   const sponsorsList = useSponsors()
   const updatesList = useUpdates()
+  const pagesList = usePages()
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [failedLoginAttempts, setFailedLoginAttempts] = useState(0)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
@@ -103,6 +106,10 @@ export function AdminDashboardPage() {
   const [updateError, setUpdateError] = useState('')
   const [jobAdditionalLinks, setJobAdditionalLinks] = useState<ContentLink[]>([])
   const [updateAdditionalLinks, setUpdateAdditionalLinks] = useState<ContentLink[]>([])
+  const [selectedPageSlug, setSelectedPageSlug] = useState(defaultPages[0].slug)
+  const [pageForm, setPageForm] = useState<ManagedPage>(defaultPages[0])
+  const [pageError, setPageError] = useState('')
+  const [pageSaved, setPageSaved] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -192,7 +199,7 @@ export function AdminDashboardPage() {
     }
 
     setFailedLoginAttempts(0)
-    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates()])
+    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates(), reloadPages()])
     setIsAuthenticated(true)
   }
 
@@ -255,7 +262,7 @@ export function AdminDashboardPage() {
     setIsPasswordRecovery(false)
     setRecoveryPending(false)
     setRecoveryMessage('Password updated. Your admin workspace is ready.')
-    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates()])
+    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates(), reloadPages()])
     setIsAuthenticated(true)
   }
 
@@ -310,6 +317,53 @@ export function AdminDashboardPage() {
     setCategoryForm({ name: '', description: '' })
     setEditingCategoryId(null)
     setCategoryError('')
+  }
+
+  const handleSelectPage = (slug: string) => {
+    const page = pagesList.find((item) => item.slug === slug) ?? defaultPages.find((item) => item.slug === slug)
+    if (!page) return
+    setSelectedPageSlug(slug)
+    setPageForm({ ...page, list: [...page.list] })
+    setPageError('')
+    setPageSaved(false)
+  }
+
+  const handleSavePage = async () => {
+    const actionHref = pageForm.actionHref?.trim()
+    if (actionHref) {
+      try {
+        if (!['http:', 'https:'].includes(new URL(actionHref).protocol)) throw new Error()
+      } catch {
+        setPageError('Button link must be a complete http:// or https:// URL.')
+        return
+      }
+    }
+    const page: ManagedPage = {
+      ...pageForm,
+      slug: selectedPageSlug,
+      title: pageForm.title.trim(),
+      intro: pageForm.intro.trim(),
+      list: pageForm.list.map((item) => item.trim()).filter(Boolean),
+      actionHref: actionHref || undefined,
+      actionLabel: pageForm.actionLabel?.trim() || undefined,
+      updatedAt: new Date().toISOString().slice(0, 10),
+    }
+    if (!page.title || !page.intro) {
+      setPageError('Page title and introduction are required.')
+      return
+    }
+    if (Boolean(page.actionHref) !== Boolean(page.actionLabel)) {
+      setPageError('Add both button text and button link, or leave both empty.')
+      return
+    }
+    const error = await savePage(page)
+    if (error) {
+      setPageError(`Could not save page: ${error}`)
+      return
+    }
+    setPageForm(page)
+    setPageError('')
+    setPageSaved(true)
   }
 
   const handleDeleteCategory = async (category: CategoryDefinition) => {
@@ -686,6 +740,7 @@ export function AdminDashboardPage() {
     { id: 'results', label: 'Results', icon: ClipboardCheck, count: updatesList.filter((item) => item.kind === 'results').length },
     { id: 'categories', label: 'Job types', icon: Tags, count: categoriesList.length },
     { id: 'blogs', label: 'Blogs', icon: BookOpenText, count: blogsList.length },
+    { id: 'pages', label: 'Pages', icon: Files, count: pagesList.length },
     { id: 'sponsors', label: 'Sponsors', icon: Megaphone, count: sponsorsList.length },
   ] as const
   const activeSectionItem = sectionItems.find((section) => section.id === activeSection)
@@ -697,12 +752,15 @@ export function AdminDashboardPage() {
     results: 'Share verified result notices and official result links.',
     categories: 'Manage the job types shown in navigation and filters.',
     blogs: 'Write, edit, and publish career articles.',
+    pages: 'Edit About, Contact, Disclaimer, and policy page content.',
     sponsors: 'Manage sponsored placements and their visibility.',
   }
   const sectionStats = activeSection === 'jobs'
     ? jobStats
     : activeSection === 'blogs'
       ? blogStats
+        : activeSection === 'pages'
+          ? [['Editable pages', pagesList.length]]
       : activeSection === 'sponsors'
         ? sponsorStats
         : activeSection === 'admissions'
@@ -1019,6 +1077,56 @@ export function AdminDashboardPage() {
             {!categoriesList.length && <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No job types loaded. Check Supabase categories setup.</p>}
           </div>
         </div>
+      </section>}
+
+      {activeSection === 'pages' && <section className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-800">Website content</p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">Edit static page</h2>
+            </div>
+            <label className="block text-xs font-semibold text-slate-600">Select page
+              <select value={selectedPageSlug} onChange={(event) => handleSelectPage(event.target.value)} className="mt-1 block w-full min-w-48 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10">
+                {pagesList.map((page) => <option key={page.slug} value={page.slug}>{page.title}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="space-y-4">
+            <label className="block text-sm font-semibold text-slate-700">Page title
+              <input value={pageForm.title} onChange={(event) => { setPageForm((current) => ({ ...current, title: event.target.value })); setPageSaved(false) }} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" />
+            </label>
+            <label className="block text-sm font-semibold text-slate-700">Introduction
+              <textarea rows={5} value={pageForm.intro} onChange={(event) => { setPageForm((current) => ({ ...current, intro: event.target.value })); setPageSaved(false) }} className="mt-1.5 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" />
+            </label>
+            <label className="block text-sm font-semibold text-slate-700">Bullet points <span className="font-normal text-slate-500">(one per line)</span>
+              <textarea rows={5} value={pageForm.list.join('\n')} onChange={(event) => { setPageForm((current) => ({ ...current, list: event.target.value.split('\n') })); setPageSaved(false) }} className="mt-1.5 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" />
+            </label>
+            <fieldset className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-2">
+              <legend className="px-1 text-xs font-bold uppercase tracking-wide text-slate-500">Optional action button</legend>
+              <label className="block text-sm font-semibold text-slate-700">Button text
+                <input value={pageForm.actionLabel ?? ''} onChange={(event) => { setPageForm((current) => ({ ...current, actionLabel: event.target.value })); setPageSaved(false) }} placeholder="e.g. Open contact form" className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-700" />
+              </label>
+              <label className="block text-sm font-semibold text-slate-700">External button URL
+                <input type="url" value={pageForm.actionHref ?? ''} onChange={(event) => { setPageForm((current) => ({ ...current, actionHref: event.target.value })); setPageSaved(false) }} placeholder="https://..." className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-700" />
+              </label>
+            </fieldset>
+            {pageError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{pageError}</p>}
+            {pageSaved && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-900">Page content saved.</p>}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+              <p className="text-xs text-slate-500">Public URL: <span className="font-semibold text-slate-700">/{pageForm.slug}</span></p>
+              <button type="button" onClick={() => { void handleSavePage() }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-800"><CheckCircle2 className="size-4" />Save page</button>
+            </div>
+          </div>
+        </div>
+
+        <aside className="rounded-xl border border-slate-200 bg-[#f5f8f6] p-5 sm:p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-800">Page preview</p>
+          <h3 className="mt-2 text-2xl font-black text-slate-950">{pageForm.title}</h3>
+          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">{pageForm.intro}</p>
+          {pageForm.list.filter((item) => item.trim()).length > 0 && <ul className="mt-4 space-y-2 pl-5 text-sm text-slate-700">{pageForm.list.filter((item) => item.trim()).map((item, index) => <li key={`${index}-${item}`} className="list-disc">{item}</li>)}</ul>}
+          {pageForm.actionLabel && <span className="mt-5 inline-flex rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-semibold text-white">{pageForm.actionLabel}</span>}
+        </aside>
       </section>}
 
       {activeSection === 'blogs' && <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
