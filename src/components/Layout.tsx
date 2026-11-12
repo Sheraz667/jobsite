@@ -29,6 +29,13 @@ const jobLinks = [
   { label: 'Other Jobs', to: '/other' },
 ]
 
+const socialLinks = [
+  { label: 'Instagram', href: 'https://www.instagram.com/pakjobinfo.pk?dlrf=eXB1NXpydHc5Nngw', icon: 'instagram', color: 'E4405F' },
+  { label: 'Facebook', href: 'https://www.facebook.com/share/1A7eS5HroF/', icon: 'facebook', color: '0866FF' },
+  { label: 'Pinterest', href: 'https://pin.it/50hkAlHKp', icon: 'pinterest', color: 'BD081C' },
+  { label: 'TikTok', href: 'https://www.tiktok.com/@pakjobinfo5?_r=1&_t=ZN-9BLESJyTf7r', icon: 'tiktok', color: 'FFFFFF' },
+]
+
 export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const isAdminRoute = useLocation().pathname.startsWith('/admin')
@@ -189,10 +196,10 @@ export function Layout() {
               {!sponsors.length && <Link to="/contact" className="text-sm font-semibold text-[#005b3f] hover:underline">Want to advertise here?</Link>}
             </div>
             {sponsors.length ? (
-              <div className="flex flex-col items-center gap-5">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {sponsors.map((sponsor) => (
-                  <a key={sponsor.id} href={sponsor.destinationUrl} target="_blank" rel="sponsored noopener noreferrer" className="group flex min-h-36 w-full max-w-[680px] items-center gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-800/25 hover:shadow-md sm:gap-6 sm:p-6">
-                    <img src={sponsor.thumbnailUrl} alt="" loading="lazy" className="h-28 w-28 shrink-0 rounded-xl bg-slate-50 object-cover sm:h-36 sm:w-36" />
+                  <a key={sponsor.id} href={sponsor.destinationUrl} target="_blank" rel="sponsored noopener noreferrer" className="group flex h-full items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-800/25 hover:shadow-md">
+                    <img src={sponsor.thumbnailUrl} alt="" loading="lazy" className="h-20 w-20 shrink-0 rounded-xl bg-slate-50 object-cover" />
                     <span className="min-w-0">
                       <span className="block truncate font-bold text-slate-900">{sponsor.name}</span>
                       <span className="mt-1 block line-clamp-2 text-sm leading-5 text-slate-600">{sponsor.description}</span>
@@ -211,7 +218,7 @@ export function Layout() {
       )}
 
       {!isAdminRoute && <footer className="border-t border-emerald-900/20 bg-[#013d2d] text-emerald-50">
-        <div className="mx-auto grid max-w-7xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr_1fr] lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_0.8fr] lg:px-8">
           <div>
             <div className="mb-4 flex items-center gap-3">
               <img src={brandLogo} alt="PakJobInfo" className="h-16 w-24 rounded-lg bg-white object-contain" />
@@ -250,7 +257,27 @@ export function Layout() {
             <ul className="space-y-2 text-sm">
               <li><Link to="/disclaimer" className="hover:text-white">Disclaimer</Link></li>
               <li><Link to="/editorial-policy" className="hover:text-white">Editorial Policy</Link></li>
-              <li><a href="/sitemap.xml" className="hover:text-white">Sitemap</a></li>
+              <li><Link to="/sitemap.xml" className="hover:text-white">Sitemap</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Follow us</p>
+            <ul className="flex flex-wrap gap-3">
+              {socialLinks.map((social) => (
+                <li key={social.label}>
+                  <a
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`PakJobInfo on ${social.label}`}
+                    title={social.label}
+                    className="flex size-11 items-center justify-center rounded-lg border border-white/15 bg-white/5 transition hover:border-white/40 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f7d154]"
+                  >
+                    <img src={`https://cdn.simpleicons.org/${social.icon}/${social.color}`} alt="" className="size-5" loading="lazy" />
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
         </div>

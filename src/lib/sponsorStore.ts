@@ -57,29 +57,33 @@ export async function reloadSponsors() {
     thumbnailUrl: String(row.thumbnail_url ?? ''),
     destinationUrl: String(row.destination_url ?? ''),
     status: String(row.status) as Sponsor['status'],
+    expiryDays: row.expiry_days === 3 || row.expiry_days === 7 || row.expiry_days === 10 ? row.expiry_days : null,
+    expiresAt: row.expires_at ? String(row.expires_at) : null,
     createdAt: String(row.created_at).slice(0, 10),
     updatedAt: String(row.updated_at).slice(0, 10),
   }))
   notify()
 }
 
-export function saveSponsors(update: Sponsor[] | ((current: Sponsor[]) => Sponsor[])) {
+export async function saveSponsors(update: Sponsor[] | ((current: Sponsor[]) => Sponsor[])): Promise<boolean> {
   const previous = sponsorSnapshot
-  sponsorSnapshot = typeof update === 'function' ? update(sponsorSnapshot) : update
-  try {
-    if (isSupabaseConfigured) localStorage.removeItem(storageKey)
-    else localStorage.setItem(storageKey, JSON.stringify(sponsorSnapshot))
-  } catch {
-    // Keep the current session usable if browser storage is unavailable.
-  }
-  notify()
+  const nextSponsors = typeof update === 'function' ? update(previous) : update
 
-  if (!isSupabaseConfigured) return
+  if (!isSupabaseConfigured) {
+    sponsorSnapshot = nextSponsors
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(sponsorSnapshot))
+    } catch {
+      // Keep the current session usable if browser storage is unavailable.
+    }
+    notify()
+    return true
+  }
 
   const oldIds = new Set(previous.map((sponsor) => sponsor.id))
-  const nextIds = new Set(sponsorSnapshot.map((sponsor) => sponsor.id))
-  const changed = sponsorSnapshot.filter((sponsor) => !oldIds.has(sponsor.id) || JSON.stringify(sponsor) !== JSON.stringify(previous.find((item) => item.id === sponsor.id)))
-  void Promise.all([
+  const nextIds = new Set(nextSponsors.map((sponsor) => sponsor.id))
+  const changed = nextSponsors.filter((sponsor) => !oldIds.has(sponsor.id) || JSON.stringify(sponsor) !== JSON.stringify(previous.find((item) => item.id === sponsor.id)))
+  const results = await Promise.all([
     ...changed.map((sponsor) => supabase.from('sponsors').upsert({
       external_id: sponsor.id,
       name: sponsor.name,
@@ -87,11 +91,25 @@ export function saveSponsors(update: Sponsor[] | ((current: Sponsor[]) => Sponso
       thumbnail_url: sponsor.thumbnailUrl,
       destination_url: sponsor.destinationUrl,
       status: sponsor.status,
+      expiry_days: sponsor.expiryDays,
+      expires_at: sponsor.expiresAt,
       updated_at: sponsor.updatedAt,
     }, { onConflict: 'external_id' })),
     ...previous.filter((sponsor) => !nextIds.has(sponsor.id)).map((sponsor) => supabase.from('sponsors').delete().eq('external_id', sponsor.id)),
-  ]).then((results) => {
-    const failed = results.find((result) => result.error)
-    if (failed?.error) console.error('Sponsor save failed:', failed.error.message)
-  })
+  ])
+
+  const failed = results.find((result) => result.error)
+  if (failed?.error) {
+    console.error('Sponsor save failed:', failed.error.message)
+    return false
+  }
+
+  sponsorSnapshot = nextSponsors
+  try {
+    localStorage.removeItem(storageKey)
+  } catch {
+    // Supabase remains the source of truth when browser storage is unavailable.
+  }
+  notify()
+  return true
 }

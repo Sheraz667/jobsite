@@ -1,4 +1,4 @@
-export type SponsorStatus = 'Draft' | 'Published'
+export type SponsorStatus = 'Draft' | 'Published' | 'Closed'
 
 export interface Sponsor {
   id: string
@@ -7,6 +7,8 @@ export interface Sponsor {
   thumbnailUrl: string
   destinationUrl: string
   status: SponsorStatus
+  expiryDays: 3 | 7 | 10 | null
+  expiresAt: string | null
   createdAt: string
   updatedAt: string
 }

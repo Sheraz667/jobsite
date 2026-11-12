@@ -51,6 +51,8 @@ const sponsorFormDefaults = {
   destinationUrl: '',
 }
 
+type SponsorExpiryOption = '' | '3' | '7' | '10'
+
 export function AdminDashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authPending, setAuthPending] = useState(true)
@@ -71,6 +73,7 @@ export function AdminDashboardPage() {
   const [loginError, setLoginError] = useState('')
   const [sponsorForm, setSponsorForm] = useState(sponsorFormDefaults)
   const [sponsorStatus, setSponsorStatus] = useState<SponsorStatus>('Draft')
+  const [sponsorExpiryDays, setSponsorExpiryDays] = useState<SponsorExpiryOption>('')
   const [editingSponsorId, setEditingSponsorId] = useState<string | null>(null)
   const [sponsorError, setSponsorError] = useState('')
 
@@ -159,9 +162,10 @@ export function AdminDashboardPage() {
     ['Total Sponsors', sponsorsList.length],
     ['Published', sponsorsList.filter((sponsor) => sponsor.status === 'Published').length],
     ['Drafts', sponsorsList.filter((sponsor) => sponsor.status === 'Draft').length],
+    ['Closed', sponsorsList.filter((sponsor) => sponsor.status === 'Closed').length],
   ]
 
-  const handleSaveSponsor = (status: SponsorStatus) => {
+  const handleSaveSponsor = async (status: SponsorStatus) => {
     const validUrl = (value: string) => {
       try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
     }
@@ -176,6 +180,12 @@ export function AdminDashboardPage() {
 
     const now = new Date().toISOString().slice(0, 10)
     const previous = sponsorsList.find((sponsor) => sponsor.id === editingSponsorId)
+    const expiryDays = sponsorExpiryDays ? Number(sponsorExpiryDays) as 3 | 7 | 10 : null
+    const expiresAt = status !== 'Published' || !expiryDays
+      ? null
+      : previous?.status === 'Published' && previous.expiryDays === expiryDays
+        ? previous.expiresAt
+        : new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString()
     const sponsor: Sponsor = {
       id: editingSponsorId ?? `sponsor-${Date.now()}`,
       name: sponsorForm.name.trim(),
@@ -183,14 +193,21 @@ export function AdminDashboardPage() {
       thumbnailUrl: normalizeImageUrl(sponsorForm.thumbnailUrl),
       destinationUrl: sponsorForm.destinationUrl.trim(),
       status,
+      expiryDays,
+      expiresAt,
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
     }
-    saveSponsors((current) => editingSponsorId
+    const saved = await saveSponsors((current) => editingSponsorId
       ? current.map((item) => item.id === editingSponsorId ? sponsor : item)
       : [sponsor, ...current])
+    if (!saved) {
+      setSponsorError('Sponsor could not be saved to Supabase. Check the Supabase table, permissions, and sponsor expiry migration.')
+      return
+    }
     setSponsorForm(sponsorFormDefaults)
     setEditingSponsorId(null)
+    setSponsorExpiryDays('')
     setSponsorError('')
   }
 
@@ -657,6 +674,15 @@ export function AdminDashboardPage() {
             <label className="block text-sm font-medium text-slate-700">Sponsor destination link
               <input type="url" value={sponsorForm.destinationUrl} onChange={(event) => setSponsorField('destinationUrl', event.target.value)} placeholder="https://sponsor.example" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
             </label>
+            <label className="block text-sm font-medium text-slate-700">Close placement after
+              <select value={sponsorExpiryDays} onChange={(event) => setSponsorExpiryDays(event.target.value as SponsorExpiryOption)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]">
+                <option value="">No automatic closing</option>
+                <option value="3">3 days</option>
+                <option value="7">7 days</option>
+                <option value="10">10 days</option>
+              </select>
+              <span className="mt-1 block text-xs text-slate-500">The countdown starts when you publish. Expired placements disappear and are marked Closed automatically.</span>
+            </label>
             {sponsorError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{sponsorError}</p>}
             <div className="flex flex-wrap gap-3">
               <button type="button" onClick={() => { setSponsorStatus('Draft'); handleSaveSponsor('Draft') }} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold ${sponsorStatus === 'Draft' ? 'border-[#005b3f] bg-emerald-50 text-[#013d2d]' : 'border-slate-300 text-slate-700'}`}>Save draft</button>
@@ -678,7 +704,7 @@ export function AdminDashboardPage() {
                   <p className="text-sm text-slate-600">{sponsor.status} · {sponsor.updatedAt}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { setEditingSponsorId(sponsor.id); setSponsorForm({ name: sponsor.name, description: sponsor.description, thumbnailUrl: sponsor.thumbnailUrl, destinationUrl: sponsor.destinationUrl }); setSponsorStatus(sponsor.status); setSponsorError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                  <button type="button" onClick={() => { setEditingSponsorId(sponsor.id); setSponsorForm({ name: sponsor.name, description: sponsor.description, thumbnailUrl: sponsor.thumbnailUrl, destinationUrl: sponsor.destinationUrl }); setSponsorStatus(sponsor.status); setSponsorExpiryDays(sponsor.expiryDays ? String(sponsor.expiryDays) as SponsorExpiryOption : ''); setSponsorError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
                   <button type="button" onClick={() => saveSponsors((current) => current.filter((item) => item.id !== sponsor.id))} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>
                 </div>
               </article>

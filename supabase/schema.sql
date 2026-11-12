@@ -75,27 +75,6 @@ create table if not exists blogs (
 
 alter table blogs add column if not exists social_links jsonb not null default '{}'::jsonb;
 
-create table if not exists sponsors (
-  id uuid primary key default gen_random_uuid(),
-  external_id text unique,
-  name text not null,
-  description text not null,
-  thumbnail_url text not null,
-  destination_url text not null,
-  status text not null default 'Draft' check (status in ('Draft','Published')),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-alter table sponsors enable row level security;
-create index if not exists sponsors_status_idx on sponsors(status);
-drop policy if exists "Public published sponsors are readable" on sponsors;
-create policy "Public published sponsors are readable" on sponsors for select using (status = 'Published');
-drop policy if exists "Admins manage sponsors" on sponsors;
-create policy "Admins manage sponsors" on sponsors for all
-using (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'))
-with check (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
-
 create table if not exists admin_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid unique references auth.users(id) on delete cascade,
@@ -107,6 +86,45 @@ create table if not exists admin_profiles (
 
 alter table admin_profiles add column if not exists user_id uuid references auth.users(id) on delete cascade;
 create unique index if not exists admin_profiles_user_id_idx on admin_profiles(user_id);
+
+create table if not exists sponsors (
+  id uuid primary key default gen_random_uuid(),
+  external_id text unique,
+  name text not null,
+  description text not null,
+  thumbnail_url text not null,
+  destination_url text not null,
+  status text not null default 'Draft' check (status in ('Draft','Published')),
+  expiry_days integer,
+  expires_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table sponsors add column if not exists expiry_days integer;
+alter table sponsors add column if not exists expires_at timestamptz;
+alter table sponsors drop constraint if exists sponsors_status_check;
+alter table sponsors add constraint sponsors_status_check check (status in ('Draft','Published','Closed'));
+alter table sponsors drop constraint if exists sponsors_expiry_days_check;
+alter table sponsors add constraint sponsors_expiry_days_check check (expiry_days is null or expiry_days in (3, 7, 10));
+
+alter table sponsors enable row level security;
+create index if not exists sponsors_status_idx on sponsors(status);
+create index if not exists sponsors_expiry_idx on sponsors(expires_at) where status = 'Published';
+drop policy if exists "Public published sponsors are readable" on sponsors;
+create policy "Public published sponsors are readable" on sponsors for select using (status = 'Published' and (expires_at is null or expires_at > now()));
+drop policy if exists "Admins manage sponsors" on sponsors;
+create policy "Admins manage sponsors" on sponsors for all
+using (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'))
+with check (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
+
+create extension if not exists pg_cron;
+select cron.unschedule(jobid) from cron.job where jobname = 'close-expired-sponsors';
+select cron.schedule(
+  'close-expired-sponsors',
+  '*/15 * * * *',
+  $job$update public.sponsors set status = 'Closed', updated_at = now() where status = 'Published' and expires_at <= now();$job$
+);
 
 create table if not exists website_settings (
   id uuid primary key default gen_random_uuid(),
