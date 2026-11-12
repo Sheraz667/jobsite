@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowRight, BookOpenText, BriefcaseBusiness, CheckCircle2, ClipboardCheck, Clock3, FileText, Files, GraduationCap, KeyRound, LockKeyhole, MailCheck, Megaphone, PencilLine, Tags, Trash2, XCircle } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowRight, BookOpenText, BriefcaseBusiness, CheckCircle2, ClipboardCheck, Clock3, FileText, Files, GraduationCap, KeyRound, Link2, LockKeyhole, MailCheck, Megaphone, PencilLine, Plus, Tags, Trash2, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { RichTextEditor } from '../components/RichTextEditor'
 import { ContentLinksEditor } from '../components/ContentLinksEditor'
@@ -11,12 +11,14 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { reloadSponsors, saveSponsors, useSponsors } from '../lib/sponsorStore'
 import { reloadUpdates, saveUpdates, useUpdates } from '../lib/updateStore'
 import { defaultPages, reloadPages, savePage, usePages } from '../lib/pageStore'
+import { reloadFooterLinks, saveFooterLinks, useFooterLinks } from '../lib/footerLinkStore'
 import { isJobDeadlinePassed, isJobUnavailable, pakistanToday } from '../lib/jobDeadline'
 import type { CategoryDefinition, ContentLink, Job, JobStatus } from '../types'
 import type { BlogArticle, BlogSocialPlatform, BlogStatus } from '../types.blog'
 import type { Sponsor, SponsorSocialPlatform, SponsorStatus } from '../types.sponsor'
 import type { AcademicUpdate, UpdateKind, UpdateStatus } from '../types.update'
 import type { ManagedPage } from '../types.page'
+import type { FooterLinkGroup, FooterLinkItem, FooterLinkType, FooterSocialPlatform } from '../types.footer'
 
 const formDefaults = {
   title: '',
@@ -65,13 +67,14 @@ type SponsorExpiryOption = '' | '3' | '7' | '10'
 export function AdminDashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authPending, setAuthPending] = useState(true)
-  const [activeSection, setActiveSection] = useState<'jobs' | 'categories' | 'admissions' | 'results' | 'blogs' | 'pages' | 'sponsors'>('jobs')
+  const [activeSection, setActiveSection] = useState<'jobs' | 'categories' | 'admissions' | 'results' | 'blogs' | 'pages' | 'sponsors' | 'footer'>('jobs')
   const jobsList = useJobs()
   const categoriesList = useCategories()
   const blogsList = useBlogs()
   const sponsorsList = useSponsors()
   const updatesList = useUpdates()
   const pagesList = usePages()
+  const footerLinks = useFooterLinks()
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [failedLoginAttempts, setFailedLoginAttempts] = useState(0)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
@@ -110,6 +113,11 @@ export function AdminDashboardPage() {
   const [pageForm, setPageForm] = useState<ManagedPage>(defaultPages[0])
   const [pageError, setPageError] = useState('')
   const [pageSaved, setPageSaved] = useState(false)
+  const [selectedFooterGroup, setSelectedFooterGroup] = useState<FooterLinkGroup>('quick')
+  const [editingFooterLinkId, setEditingFooterLinkId] = useState<string | null>(null)
+  const [footerLinkForm, setFooterLinkForm] = useState({ label: '', url: '', type: 'internal' as FooterLinkType, platform: '' as FooterSocialPlatform | '', sortOrder: 0 })
+  const [footerLinkError, setFooterLinkError] = useState('')
+  const [footerLinkSaved, setFooterLinkSaved] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -199,7 +207,7 @@ export function AdminDashboardPage() {
     }
 
     setFailedLoginAttempts(0)
-    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates(), reloadPages()])
+    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates(), reloadPages(), reloadFooterLinks()])
     setIsAuthenticated(true)
   }
 
@@ -262,7 +270,7 @@ export function AdminDashboardPage() {
     setIsPasswordRecovery(false)
     setRecoveryPending(false)
     setRecoveryMessage('Password updated. Your admin workspace is ready.')
-    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates(), reloadPages()])
+    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates(), reloadPages(), reloadFooterLinks()])
     setIsAuthenticated(true)
   }
 
@@ -364,6 +372,60 @@ export function AdminDashboardPage() {
     setPageForm(page)
     setPageError('')
     setPageSaved(true)
+  }
+
+  const handleSaveFooterLink = async () => {
+    const label = footerLinkForm.label.trim()
+    const url = footerLinkForm.url.trim()
+    const type = selectedFooterGroup === 'social' ? 'external' : footerLinkForm.type
+    if (!label || !url) {
+      setFooterLinkError('Add a link label and URL.')
+      return
+    }
+    if (type === 'internal') {
+      if (!url.startsWith('/') || url.startsWith('//') || url.includes('\\')) {
+        setFooterLinkError('Internal links must use a site path such as /about or /jobs.')
+        return
+      }
+    } else {
+      try {
+        if (!['http:', 'https:'].includes(new URL(url).protocol)) throw new Error()
+      } catch {
+        setFooterLinkError('External links must be complete http:// or https:// URLs.')
+        return
+      }
+    }
+    if (selectedFooterGroup === 'social' && !footerLinkForm.platform) {
+      setFooterLinkError('Choose a social platform icon.')
+      return
+    }
+
+    const link: FooterLinkItem = {
+      id: editingFooterLinkId ?? `footer-${crypto.randomUUID()}`,
+      group: selectedFooterGroup,
+      label,
+      url,
+      type,
+      platform: selectedFooterGroup === 'social' ? footerLinkForm.platform as FooterSocialPlatform : undefined,
+      sortOrder: Math.max(0, Math.floor(Number(footerLinkForm.sortOrder) || 0)),
+    }
+    const nextLinks = editingFooterLinkId
+      ? footerLinks.map((item) => item.id === editingFooterLinkId ? link : item)
+      : [...footerLinks, link]
+    const error = await saveFooterLinks(nextLinks)
+    if (error) {
+      setFooterLinkError(`Could not save footer link: ${error}`)
+      return
+    }
+    setFooterLinkForm({ label: '', url: '', type: 'internal', platform: '', sortOrder: footerLinks.filter((item) => item.group === selectedFooterGroup).length })
+    setEditingFooterLinkId(null)
+    setFooterLinkError('')
+    setFooterLinkSaved(true)
+  }
+
+  const handleDeleteFooterLink = async (id: string) => {
+    const error = await saveFooterLinks(footerLinks.filter((item) => item.id !== id))
+    setFooterLinkError(error ? `Could not delete footer link: ${error}` : '')
   }
 
   const handleDeleteCategory = async (category: CategoryDefinition) => {
@@ -742,6 +804,7 @@ export function AdminDashboardPage() {
     { id: 'blogs', label: 'Blogs', icon: BookOpenText, count: blogsList.length },
     { id: 'pages', label: 'Pages', icon: Files, count: pagesList.length },
     { id: 'sponsors', label: 'Sponsors', icon: Megaphone, count: sponsorsList.length },
+    { id: 'footer', label: 'Footer links', icon: Link2, count: footerLinks.length },
   ] as const
   const activeSectionItem = sectionItems.find((section) => section.id === activeSection)
   const ActiveSectionIcon = activeSectionItem?.icon ?? Activity
@@ -754,6 +817,7 @@ export function AdminDashboardPage() {
     blogs: 'Write, edit, and publish career articles.',
     pages: 'Edit About, Contact, Disclaimer, and policy page content.',
     sponsors: 'Manage sponsored placements and their visibility.',
+    footer: 'Edit Quick links, Company, Legal, and social links in the footer.',
   }
   const sectionStats = activeSection === 'jobs'
     ? jobStats
@@ -767,6 +831,8 @@ export function AdminDashboardPage() {
           ? academicStats('admissions')
           : activeSection === 'results'
             ? academicStats('results')
+            : activeSection === 'footer'
+              ? [['Footer links', footerLinks.length]]
             : [['Job Types', categoriesList.length]]
 
   return (
@@ -1127,6 +1193,70 @@ export function AdminDashboardPage() {
           {pageForm.list.filter((item) => item.trim()).length > 0 && <ul className="mt-4 space-y-2 pl-5 text-sm text-slate-700">{pageForm.list.filter((item) => item.trim()).map((item, index) => <li key={`${index}-${item}`} className="list-disc">{item}</li>)}</ul>}
           {pageForm.actionLabel && <span className="mt-5 inline-flex rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-semibold text-white">{pageForm.actionLabel}</span>}
         </aside>
+      </section>}
+
+      {activeSection === 'footer' && <section className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 border-b border-slate-100 pb-4">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-800">Footer navigation</p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">{editingFooterLinkId ? 'Edit footer link' : 'Add footer link'}</h2>
+          </div>
+          <div className="space-y-4">
+            <label className="block text-sm font-semibold text-slate-700">Footer group
+              <select value={selectedFooterGroup} onChange={(event) => { setSelectedFooterGroup(event.target.value as FooterLinkGroup); setEditingFooterLinkId(null); setFooterLinkForm({ label: '', url: '', type: event.target.value === 'social' ? 'external' : 'internal', platform: '', sortOrder: footerLinks.filter((item) => item.group === event.target.value).length }); setFooterLinkError(''); setFooterLinkSaved(false) }} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-700">
+                <option value="quick">Quick links</option><option value="company">Company</option><option value="legal">Legal</option><option value="social">Follow us</option>
+              </select>
+            </label>
+            <label className="block text-sm font-semibold text-slate-700">Link label
+              <input value={footerLinkForm.label} onChange={(event) => { setFooterLinkForm((current) => ({ ...current, label: event.target.value })); setFooterLinkSaved(false) }} placeholder={selectedFooterGroup === 'social' ? 'Instagram' : 'About Us'} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-700" />
+            </label>
+            {selectedFooterGroup === 'social' ? (
+              <>
+                <label className="block text-sm font-semibold text-slate-700">Social platform icon
+                  <select value={footerLinkForm.platform} onChange={(event) => setFooterLinkForm((current) => ({ ...current, platform: event.target.value as FooterSocialPlatform }))} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-700">
+                    <option value="">Choose platform</option><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="pinterest">Pinterest</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="twitter">X / Twitter</option>
+                  </select>
+                </label>
+                <input type="hidden" value="external" readOnly />
+              </>
+            ) : (
+              <label className="block text-sm font-semibold text-slate-700">Link type
+                <select value={footerLinkForm.type} onChange={(event) => setFooterLinkForm((current) => ({ ...current, type: event.target.value as FooterLinkType }))} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-700"><option value="internal">Internal page</option><option value="external">External website</option></select>
+              </label>
+            )}
+            <label className="block text-sm font-semibold text-slate-700">URL
+              <input type={selectedFooterGroup === 'social' || footerLinkForm.type === 'external' ? 'url' : 'text'} value={footerLinkForm.url} onChange={(event) => { setFooterLinkForm((current) => ({ ...current, url: event.target.value })); setFooterLinkSaved(false) }} placeholder={selectedFooterGroup === 'social' || footerLinkForm.type === 'external' ? 'https://example.com' : '/about'} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-700" />
+            </label>
+            <label className="block text-sm font-semibold text-slate-700">Display order
+              <input type="number" min="0" step="1" value={footerLinkForm.sortOrder} onChange={(event) => setFooterLinkForm((current) => ({ ...current, sortOrder: Number(event.target.value) }))} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-700" />
+            </label>
+            {footerLinkError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{footerLinkError}</p>}
+            {footerLinkSaved && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">Footer link saved.</p>}
+            <div className="flex gap-2 border-t border-slate-100 pt-4">
+              <button type="button" onClick={() => { void handleSaveFooterLink() }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-800"><CheckCircle2 className="size-4" />{editingFooterLinkId ? 'Save changes' : 'Add link'}</button>
+              {editingFooterLinkId && <button type="button" onClick={() => { setEditingFooterLinkId(null); setFooterLinkForm({ label: '', url: '', type: selectedFooterGroup === 'social' ? 'external' : 'internal', platform: '', sortOrder: footerLinks.filter((item) => item.group === selectedFooterGroup).length }); setFooterLinkError('') }} className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex items-end justify-between gap-3 border-b border-slate-100 pb-4">
+            <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Visible in site footer</p><h2 className="mt-1 text-xl font-black text-slate-950">{selectedFooterGroup === 'quick' ? 'Quick links' : selectedFooterGroup === 'company' ? 'Company' : selectedFooterGroup === 'legal' ? 'Legal' : 'Follow us'}</h2></div>
+            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold tabular-nums text-slate-600">{footerLinks.filter((item) => item.group === selectedFooterGroup).length} links</span>
+          </div>
+          <div className="space-y-2">
+            {footerLinks.filter((item) => item.group === selectedFooterGroup).sort((a, b) => a.sortOrder - b.sortOrder).map((item) => (
+              <article key={item.id} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 sm:flex-row sm:items-center">
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-900">{item.label}</p><p className="truncate text-xs text-slate-500">{item.url}</p><p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-800">{item.type}{item.platform ? ` · ${item.platform}` : ''} · order {item.sortOrder}</p></div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => { setEditingFooterLinkId(item.id); setFooterLinkForm({ label: item.label, url: item.url, type: item.type, platform: item.platform ?? '', sortOrder: item.sortOrder }); setFooterLinkError(''); setFooterLinkSaved(false) }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"><PencilLine className="size-3.5" />Edit</button>
+                  <button type="button" onClick={() => { void handleDeleteFooterLink(item.id) }} aria-label={`Delete ${item.label}`} className="inline-flex size-9 items-center justify-center rounded-lg border border-red-200 bg-white text-red-700 hover:bg-red-50"><Trash2 className="size-4" /></button>
+                </div>
+              </article>
+            ))}
+            {!footerLinks.some((item) => item.group === selectedFooterGroup) && <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">No links in this group. Add your first one.</p>}
+          </div>
+        </div>
       </section>}
 
       {activeSection === 'blogs' && <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">

@@ -43,6 +43,54 @@ img {
   min-height: 100vh;
 }
 
+@property --sponsor-ring-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.sponsor-color-ring {
+  position: relative;
+  isolation: isolate;
+  --sponsor-ring-angle: 0deg;
+}
+
+.sponsor-color-ring::before {
+  position: absolute;
+  z-index: 0;
+  inset: -2px;
+  padding: 2px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--sponsor-ring-angle),
+    #013d2d 0deg 235deg,
+    #0f9f6e 250deg 285deg,
+    #111827 295deg 320deg,
+    #ffffff 326deg 332deg,
+    #013d2d 340deg 360deg
+  );
+  content: '';
+  pointer-events: none;
+  animation: sponsor-ring-travel 12s linear infinite;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.sponsor-color-ring > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes sponsor-ring-travel {
+  to { --sponsor-ring-angle: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sponsor-color-ring::before {
+    animation: none;
+  }
+}
+
 ::selection {
   background: rgba(0, 91, 63, 0.18);
 }

@@ -1,10 +1,12 @@
 import { ChevronDown, ExternalLink, LayoutDashboard, Menu, ShieldCheck } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import brandLogo from '../assets/logo/logo2.png'
 import { ContentLinksList } from './ContentLinksList'
 import { useCategories } from '../lib/categoryStore'
+import { useFooterLinks } from '../lib/footerLinkStore'
 import { useSponsors } from '../lib/sponsorStore'
+import type { FooterLinkItem, FooterLinkGroup } from '../types.footer'
 
 const primaryLinks = [
   { label: 'Home', to: '/' },
@@ -32,34 +34,49 @@ const legacyCategoryPaths: Record<string, string> = {
 
 const categoryPath = (slug: string) => legacyCategoryPaths[slug] ?? `/category/${slug}`
 
-const socialLinks = [
-  { label: 'Instagram', href: 'https://www.instagram.com/pakjobinfo.pk?dlrf=eXB1NXpydHc5Nngw', icon: 'instagram', color: 'E4405F' },
-  { label: 'Facebook', href: 'https://www.facebook.com/share/1A7eS5HroF/', icon: 'facebook', color: '0866FF' },
-  { label: 'Pinterest', href: 'https://pin.it/50hkAlHKp', icon: 'pinterest', color: 'BD081C' },
-  { label: 'TikTok', href: 'https://www.tiktok.com/@pakjobinfo5?_r=1&_t=ZN-9BLESJyTf7r', icon: 'tiktok', color: 'FFFFFF' },
-]
+const socialColors: Record<string, string> = {
+  instagram: 'E4405F',
+  facebook: '0866FF',
+  pinterest: 'BD081C',
+  tiktok: '111111',
+  youtube: 'FF0000',
+  twitter: '111111',
+}
+
+const footerGroupTitles: Record<Exclude<FooterLinkGroup, 'social'>, string> = {
+  quick: 'Quick links',
+  company: 'Company',
+  legal: 'Legal',
+}
+
+function safeFooterUrl(item: FooterLinkItem) {
+  if (item.type === 'internal') return item.url.startsWith('/') && !item.url.startsWith('//') && !item.url.includes('\\')
+  try {
+    const protocol = new URL(item.url).protocol
+    return protocol === 'https:' || protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
+function FooterTextLink({ item }: { item: FooterLinkItem }) {
+  if (!safeFooterUrl(item)) return null
+  return item.type === 'internal'
+    ? <Link to={item.url} className="hover:text-white">{item.label}</Link>
+    : <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:text-white">{item.label}</a>
+}
 
 export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const isAdminRoute = useLocation().pathname.startsWith('/admin')
   const sponsors = useSponsors().filter((sponsor) => sponsor.status === 'Published')
   const categories = useCategories()
+  const footerLinks = useFooterLinks()
+  const footerGroup = (group: FooterLinkGroup) => footerLinks.filter((item) => item.group === group).sort((a, b) => a.sortOrder - b.sortOrder)
   const jobLinks = [
     { label: 'All Jobs', to: '/jobs' },
     ...categories.map((category) => ({ label: category.name, to: categoryPath(category.slug) })),
   ]
-
-  const quickLinks = useMemo(
-    () => [
-      { label: 'Government Jobs', to: '/government' },
-      { label: 'Private Jobs', to: '/private' },
-      { label: 'Internships', to: '/internship' },
-      { label: 'Apprenticeships', to: '/apprenticeship' },
-      { label: 'Police & Forces', to: '/police' },
-      { label: 'Banking Jobs', to: '/banking' },
-    ],
-    [],
-  )
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
@@ -206,7 +223,7 @@ export function Layout() {
             {sponsors.length ? (
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {sponsors.map((sponsor) => (
-                  <article key={sponsor.id} className="flex h-full flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-800/25 hover:shadow-md">
+                  <article key={sponsor.id} className="sponsor-color-ring flex h-full flex-col gap-4 rounded-2xl border border-transparent bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
                     <a href={sponsor.destinationUrl} target="_blank" rel="sponsored noopener noreferrer" className="group flex min-w-0 items-center gap-4">
                       <img src={sponsor.thumbnailUrl} alt="" loading="lazy" className="h-24 w-24 shrink-0 rounded-xl bg-slate-50 object-cover" />
                       <span className="min-w-0">
@@ -258,65 +275,56 @@ export function Layout() {
           <details className="group border-t border-white/10 py-3 lg:hidden">
             <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-[0.1em] text-slate-200 [&::-webkit-details-marker]:hidden">Quick links</summary>
             <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-              {quickLinks.slice(0, 6).map((link) => (
-                <li key={link.to}>
-                  <Link to={link.to} className="hover:text-white">{link.label}</Link>
-                </li>
-              ))}
+              {footerGroup('quick').map((item) => <li key={item.id}><FooterTextLink item={item} /></li>)}
             </ul>
           </details>
           <div className="hidden lg:block">
             <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Quick links</p>
             <ul className="space-y-2 text-sm">
-              {quickLinks.slice(0, 6).map((link) => <li key={link.to}><Link to={link.to} className="hover:text-white">{link.label}</Link></li>)}
+              {footerGroup('quick').map((item) => <li key={item.id}><FooterTextLink item={item} /></li>)}
             </ul>
           </div>
 
           <details className="group border-t border-white/10 py-3 lg:hidden">
             <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-[0.1em] text-slate-200 [&::-webkit-details-marker]:hidden">Company</summary>
             <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-              <li><Link to="/about" className="hover:text-white">About Us</Link></li>
-              <li><Link to="/contact" className="hover:text-white">Contact Us</Link></li>
-              <li><Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="hover:text-white">Terms & Conditions</Link></li>
+              {footerGroup('company').map((item) => <li key={item.id}><FooterTextLink item={item} /></li>)}
             </ul>
           </details>
           <div className="hidden lg:block">
             <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Company</p>
             <ul className="space-y-2 text-sm">
-              <li><Link to="/about" className="hover:text-white">About Us</Link></li><li><Link to="/contact" className="hover:text-white">Contact Us</Link></li><li><Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link></li><li><Link to="/terms" className="hover:text-white">Terms & Conditions</Link></li>
+              {footerGroup('company').map((item) => <li key={item.id}><FooterTextLink item={item} /></li>)}
             </ul>
           </div>
 
           <details className="group border-t border-white/10 py-3 lg:hidden">
             <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-[0.1em] text-slate-200 [&::-webkit-details-marker]:hidden">Legal</summary>
             <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-              <li><Link to="/disclaimer" className="hover:text-white">Disclaimer</Link></li>
-              <li><Link to="/editorial-policy" className="hover:text-white">Editorial Policy</Link></li>
-              <li><Link to="/sitemap.xml" className="hover:text-white">Sitemap</Link></li>
+              {footerGroup('legal').map((item) => <li key={item.id}><FooterTextLink item={item} /></li>)}
             </ul>
           </details>
           <div className="hidden lg:block">
             <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Legal</p>
             <ul className="space-y-2 text-sm">
-              <li><Link to="/disclaimer" className="hover:text-white">Disclaimer</Link></li><li><Link to="/editorial-policy" className="hover:text-white">Editorial Policy</Link></li><li><Link to="/sitemap.xml" className="hover:text-white">Sitemap</Link></li>
+              {footerGroup('legal').map((item) => <li key={item.id}><FooterTextLink item={item} /></li>)}
             </ul>
           </div>
 
           <div>
             <p className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200 lg:mb-4">Follow us</p>
             <ul className="flex flex-wrap gap-2 lg:gap-3">
-              {socialLinks.map((social) => (
+              {footerGroup('social').filter((item) => safeFooterUrl(item)).map((social) => (
                 <li key={social.label}>
                   <a
-                    href={social.href}
+                    href={social.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`PakJobInfo on ${social.label}`}
                     title={social.label}
                     className="flex size-10 items-center justify-center rounded-lg border border-white/15 bg-white/5 transition hover:border-white/40 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f7d154] lg:size-11"
                   >
-                    <img src={`https://cdn.simpleicons.org/${social.icon}/${social.color}`} alt="" className="size-5" loading="lazy" />
+                    {social.platform ? <img src={`https://cdn.simpleicons.org/${social.platform}/${socialColors[social.platform] ?? '111111'}`} alt="" className="size-5" loading="lazy" /> : <ExternalLink className="size-4" aria-hidden="true" />}
                   </a>
                 </li>
               ))}
