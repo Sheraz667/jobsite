@@ -305,9 +305,9 @@ export function Layout() {
             </ul>
           </div>
 
-          <div>
+          <div className="text-center lg:text-left">
             <p className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200 lg:mb-4">Follow us</p>
-            <ul className="flex flex-wrap gap-2 lg:gap-3">
+            <ul className="flex flex-wrap justify-center gap-2 lg:justify-start lg:gap-3">
               {footerGroup('social').filter((item) => safeFooterUrl(item)).map((social) => (
                 <li key={social.label}>
                   <a
