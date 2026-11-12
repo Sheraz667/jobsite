@@ -23,7 +23,7 @@ export const defaultFooterLinks: FooterLinkItem[] = [
 ]
 
 const listeners = new Set<() => void>()
-let footerLinkSnapshot = isSupabaseConfigured ? [] : defaultFooterLinks
+let footerLinkSnapshot = defaultFooterLinks
 
 function notify() {
   listeners.forEach((listener) => listener())
@@ -45,6 +45,22 @@ export async function reloadFooterLinks() {
   const { data, error } = await supabase.from('footer_links').select('*').order('group_key').order('sort_order')
   if (error) {
     console.error('Footer links load failed:', error.message)
+    return
+  }
+  if (!data?.length) {
+    footerLinkSnapshot = defaultFooterLinks
+    notify()
+    const { error: seedError } = await supabase.from('footer_links').upsert(defaultFooterLinks.map((link) => ({
+      external_id: link.id,
+      group_key: link.group,
+      label: link.label,
+      url: link.url,
+      link_type: link.type,
+      platform: link.platform ?? null,
+      sort_order: link.sortOrder,
+      updated_at: new Date().toISOString(),
+    })), { onConflict: 'external_id' })
+    if (seedError) console.error('Default footer links save failed:', seedError.message)
     return
   }
   footerLinkSnapshot = (data ?? []).map((row) => ({
