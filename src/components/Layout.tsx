@@ -43,12 +43,6 @@ const socialColors: Record<string, string> = {
   twitter: '111111',
 }
 
-const footerGroupTitles: Record<Exclude<FooterLinkGroup, 'social'>, string> = {
-  quick: 'Quick links',
-  company: 'Company',
-  legal: 'Legal',
-}
-
 function safeFooterUrl(item: FooterLinkItem) {
   if (item.type === 'internal') return item.url.startsWith('/') && !item.url.startsWith('//') && !item.url.includes('\\')
   try {
