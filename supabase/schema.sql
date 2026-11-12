@@ -40,6 +40,7 @@ create table if not exists jobs (
   seo_description text,
   seo_keywords text[] default '{}',
   featured boolean default false,
+  additional_links jsonb not null default '[]'::jsonb,
   external_id text unique,
   published_at timestamptz,
   created_at timestamptz default now(),
@@ -57,6 +58,7 @@ alter table jobs add column if not exists category_slug text;
 alter table jobs add column if not exists subcategory text;
 alter table jobs add column if not exists seo_keywords text[] default '{}';
 alter table jobs add column if not exists featured boolean default false;
+alter table jobs add column if not exists additional_links jsonb not null default '[]'::jsonb;
 alter table jobs add column if not exists external_id text unique;
 
 create table if not exists blogs (
@@ -97,12 +99,28 @@ create table if not exists sponsors (
   status text not null default 'Draft' check (status in ('Draft','Published')),
   expiry_days integer,
   expires_at timestamptz,
+  social_links jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+insert into categories (slug, name, description) values
+  ('government', 'Government Jobs', 'Federal and provincial public sector roles'),
+  ('private', 'Private Jobs', 'Corporate and private sector openings'),
+  ('internship', 'Internships', 'Career-building internship programs'),
+  ('apprenticeship', 'Apprenticeships', 'Skill-based apprenticeship tracks'),
+  ('police', 'Police & Forces', 'Law enforcement and force recruitment'),
+  ('banking', 'Banking Jobs', 'Banking and financial sector roles'),
+  ('teaching', 'Teaching Jobs', 'Education and academic positions'),
+  ('healthcare', 'Healthcare Jobs', 'Medical and clinical opportunities'),
+  ('engineering', 'Engineering Jobs', 'Technical and engineering roles'),
+  ('it', 'IT & Software', 'Technology and product roles'),
+  ('other', 'Other', 'Miscellaneous career updates')
+on conflict (slug) do nothing;
+
 alter table sponsors add column if not exists expiry_days integer;
 alter table sponsors add column if not exists expires_at timestamptz;
+alter table sponsors add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table sponsors drop constraint if exists sponsors_status_check;
 alter table sponsors add constraint sponsors_status_check check (status in ('Draft','Published','Closed'));
 alter table sponsors drop constraint if exists sponsors_expiry_days_check;
@@ -125,6 +143,31 @@ select cron.schedule(
   '*/15 * * * *',
   $job$update public.sponsors set status = 'Closed', updated_at = now() where status = 'Published' and expires_at <= now();$job$
 );
+
+create table if not exists academic_updates (
+  id uuid primary key default gen_random_uuid(),
+  external_id text unique,
+  kind text not null check (kind in ('admissions', 'results')),
+  title text not null,
+  department text not null,
+  details text not null,
+  source_url text not null,
+  action_url text not null,
+  additional_links jsonb not null default '[]'::jsonb,
+  status text not null default 'Draft' check (status in ('Draft', 'Published')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table academic_updates add column if not exists additional_links jsonb not null default '[]'::jsonb;
+alter table academic_updates enable row level security;
+create index if not exists academic_updates_kind_status_created_idx on academic_updates(kind, status, created_at desc);
+drop policy if exists "Public published academic updates are readable" on academic_updates;
+create policy "Public published academic updates are readable" on academic_updates for select using (status = 'Published');
+drop policy if exists "Admins manage academic updates" on academic_updates;
+create policy "Admins manage academic updates" on academic_updates for all
+using (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'))
+with check (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
 
 create table if not exists website_settings (
   id uuid primary key default gen_random_uuid(),

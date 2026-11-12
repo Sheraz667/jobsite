@@ -7,20 +7,15 @@ export type JobStatus =
   | 'Closed'
   | 'Expired'
 
-export type JobCategory =
-  | 'government'
-  | 'private'
-  | 'internship'
-  | 'apprenticeship'
-  | 'police'
-  | 'banking'
-  | 'teaching'
-  | 'healthcare'
-  | 'engineering'
-  | 'it'
-  | 'other'
+export type JobCategory = string
 
 export type JobType = 'Full-time' | 'Part-time' | 'Contract' | 'Internship'
+
+export interface ContentLink {
+  label: string
+  url: string
+  type: 'internal' | 'external'
+}
 
 export interface Job {
   id: string
@@ -46,6 +41,7 @@ export interface Job {
   advertisementUrl: string
   officialApplyUrl: string
   officialSourceUrl: string
+  additionalLinks?: ContentLink[]
   seoTitle: string
   seoDescription: string
   seoKeywords: string[]
@@ -57,7 +53,7 @@ export interface Job {
 
 export interface CategoryDefinition {
   id: string
-  slug: JobCategory
+  slug: string
   name: string
   description: string
   accent: string

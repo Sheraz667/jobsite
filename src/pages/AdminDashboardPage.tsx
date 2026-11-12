@@ -1,16 +1,19 @@
-import { BookOpenText, BriefcaseBusiness, CheckCircle2, FileText, Megaphone, PencilLine, Trash2, XCircle } from 'lucide-react'
+import { BookOpenText, BriefcaseBusiness, CheckCircle2, ClipboardCheck, FileText, GraduationCap, Megaphone, PencilLine, Tags, Trash2, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { RichTextEditor } from '../components/RichTextEditor'
-import { categories } from '../data/jobs'
+import { ContentLinksEditor } from '../components/ContentLinksEditor'
+import { deleteCategory, reloadCategories, saveCategory, useCategories } from '../lib/categoryStore'
 import { reloadBlogs, saveBlogs, useBlogs } from '../lib/blogStore'
 import { normalizeImageUrl } from '../lib/imageUrl'
 import { reloadJobs, saveJobs, useJobs } from '../lib/jobStore'
 import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { reloadSponsors, saveSponsors, useSponsors } from '../lib/sponsorStore'
-import type { Job, JobStatus } from '../types'
+import { reloadUpdates, saveUpdates, useUpdates } from '../lib/updateStore'
+import type { CategoryDefinition, ContentLink, Job, JobStatus } from '../types'
 import type { BlogArticle, BlogSocialPlatform, BlogStatus } from '../types.blog'
-import type { Sponsor, SponsorStatus } from '../types.sponsor'
+import type { Sponsor, SponsorSocialPlatform, SponsorStatus } from '../types.sponsor'
+import type { AcademicUpdate, UpdateKind, UpdateStatus } from '../types.update'
 
 const formDefaults = {
   title: '',
@@ -49,17 +52,22 @@ const sponsorFormDefaults = {
   description: '',
   thumbnailUrl: '',
   destinationUrl: '',
+  socialLinks: { instagram: '', facebook: '', pinterest: '', tiktok: '' },
 }
+
+const updateFormDefaults = { title: '', department: '', details: '', sourceUrl: '', actionUrl: '' }
 
 type SponsorExpiryOption = '' | '3' | '7' | '10'
 
 export function AdminDashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authPending, setAuthPending] = useState(true)
-  const [activeSection, setActiveSection] = useState<'jobs' | 'blogs' | 'sponsors'>('jobs')
+  const [activeSection, setActiveSection] = useState<'jobs' | 'categories' | 'admissions' | 'results' | 'blogs' | 'sponsors'>('jobs')
   const jobsList = useJobs()
+  const categoriesList = useCategories()
   const blogsList = useBlogs()
   const sponsorsList = useSponsors()
+  const updatesList = useUpdates()
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [formData, setFormData] = useState(formDefaults)
   const [previewMode, setPreviewMode] = useState(false)
@@ -76,6 +84,14 @@ export function AdminDashboardPage() {
   const [sponsorExpiryDays, setSponsorExpiryDays] = useState<SponsorExpiryOption>('')
   const [editingSponsorId, setEditingSponsorId] = useState<string | null>(null)
   const [sponsorError, setSponsorError] = useState('')
+  const [categoryForm, setCategoryForm] = useState({ name: '', description: '' })
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
+  const [categoryError, setCategoryError] = useState('')
+  const [updateForm, setUpdateForm] = useState(updateFormDefaults)
+  const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null)
+  const [updateError, setUpdateError] = useState('')
+  const [jobAdditionalLinks, setJobAdditionalLinks] = useState<ContentLink[]>([])
+  const [updateAdditionalLinks, setUpdateAdditionalLinks] = useState<ContentLink[]>([])
 
   useEffect(() => {
     let active = true
@@ -135,7 +151,7 @@ export function AdminDashboardPage() {
       return
     }
 
-    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors()])
+    await Promise.all([reloadJobs(), reloadBlogs(), reloadSponsors(), reloadCategories(), reloadUpdates()])
     setIsAuthenticated(true)
   }
 
@@ -158,6 +174,102 @@ export function AdminDashboardPage() {
     setSponsorForm((current) => ({ ...current, [key]: value }))
   }
 
+  const setSponsorSocialLink = (platform: SponsorSocialPlatform, value: string) => {
+    setSponsorForm((current) => ({ ...current, socialLinks: { ...current.socialLinks, [platform]: value } }))
+  }
+
+  const handleSaveCategory = async () => {
+    const name = categoryForm.name.trim()
+    const existing = categoriesList.find((category) => category.id === editingCategoryId)
+    const slug = existing?.slug ?? name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    if (!name || !slug) {
+      setCategoryError('Enter a category name using English letters or numbers.')
+      return
+    }
+    if (!existing && categoriesList.some((category) => category.slug === slug)) {
+      setCategoryError('A job type with this name already exists.')
+      return
+    }
+
+    const category: CategoryDefinition = {
+      id: existing?.id ?? crypto.randomUUID(),
+      slug,
+      name,
+      description: categoryForm.description.trim(),
+      accent: existing?.accent ?? 'bg-slate-100 text-slate-700',
+    }
+    const error = await saveCategory(category)
+    if (error) {
+      setCategoryError(`Could not save this job type: ${error}`)
+      return
+    }
+    setCategoryForm({ name: '', description: '' })
+    setEditingCategoryId(null)
+    setCategoryError('')
+  }
+
+  const handleDeleteCategory = async (category: CategoryDefinition) => {
+    if (categoriesList.length <= 1) {
+      setCategoryError('Keep at least one job type available.')
+      return
+    }
+    if (jobsList.some((job) => job.category === category.slug)) {
+      setCategoryError(`“${category.name}” is assigned to jobs. Reassign or delete those jobs before removing this type.`)
+      return
+    }
+    const error = await deleteCategory(category)
+    if (error) {
+      setCategoryError(error)
+      return
+    }
+    setCategoryError('')
+  }
+
+  const handleSaveUpdate = async (kind: UpdateKind, status: UpdateStatus) => {
+    const validUrl = (value: string) => {
+      try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
+    }
+    if (!updateForm.title.trim() || !updateForm.department.trim() || !updateForm.details.trim()) {
+      setUpdateError('Add a title, department or institute, and update details.')
+      return
+    }
+    if (!validUrl(updateForm.sourceUrl.trim()) || !validUrl(updateForm.actionUrl.trim())) {
+      setUpdateError('Add valid source and action links beginning with https:// or http://.')
+      return
+    }
+    const additionalLinks = updateAdditionalLinks.filter((link) => link.label.trim() || link.url.trim())
+    if (additionalLinks.some((link) => !link.label.trim() || (link.type === 'external' ? !validUrl(link.url.trim()) : !link.url.startsWith('/') || link.url.startsWith('//')))) {
+      setUpdateError('Each extra link needs a label and a valid site path (internal) or http:// / https:// URL (external).')
+      return
+    }
+    const previous = updatesList.find((item) => item.id === editingUpdateId)
+    const today = new Date().toISOString().slice(0, 10)
+    const update: AcademicUpdate = {
+      id: editingUpdateId ?? `update-${Date.now()}`,
+      kind,
+      title: updateForm.title.trim(),
+      department: updateForm.department.trim(),
+      details: updateForm.details.trim(),
+      sourceUrl: updateForm.sourceUrl.trim(),
+      actionUrl: updateForm.actionUrl.trim(),
+      additionalLinks: additionalLinks.map((link) => ({ ...link, label: link.label.trim(), url: link.url.trim() })),
+      status,
+      createdAt: previous?.createdAt ?? today,
+      updatedAt: today,
+    }
+    const saved = await saveUpdates((current) => editingUpdateId
+      ? current.map((item) => item.id === editingUpdateId ? update : item)
+      : [update, ...current])
+    if (!saved) {
+      setUpdateError('Could not save this update. Check the Supabase academic_updates table and admin permissions.')
+      return
+    }
+    setUpdateForm(updateFormDefaults)
+    setUpdateAdditionalLinks([])
+    setEditingUpdateId(null)
+    setUpdateError('')
+  }
+
   const sponsorStats = [
     ['Total Sponsors', sponsorsList.length],
     ['Published', sponsorsList.filter((sponsor) => sponsor.status === 'Published').length],
@@ -177,6 +289,11 @@ export function AdminDashboardPage() {
       setSponsorError('Enter a valid sponsor link beginning with http:// or https://.')
       return
     }
+    const invalidSocialUrl = Object.values(sponsorForm.socialLinks).some((value) => value.trim() && !validUrl(value.trim()))
+    if (invalidSocialUrl) {
+      setSponsorError('Social profile links must be full http:// or https:// URLs.')
+      return
+    }
 
     const now = new Date().toISOString().slice(0, 10)
     const previous = sponsorsList.find((sponsor) => sponsor.id === editingSponsorId)
@@ -192,6 +309,7 @@ export function AdminDashboardPage() {
       description: sponsorForm.description.trim(),
       thumbnailUrl: normalizeImageUrl(sponsorForm.thumbnailUrl),
       destinationUrl: sponsorForm.destinationUrl.trim(),
+      socialLinks: Object.fromEntries(Object.entries(sponsorForm.socialLinks).filter(([, value]) => value.trim()).map(([platform, value]) => [platform, value.trim()])) as Sponsor['socialLinks'],
       status,
       expiryDays,
       expiresAt,
@@ -226,6 +344,12 @@ export function AdminDashboardPage() {
     ['Drafts', blogsList.filter((blog) => blog.status === 'Draft').length],
   ]
 
+  const academicStats = (kind: UpdateKind) => [
+    [`Total ${kind === 'results' ? 'Results' : 'Admissions'}`, updatesList.filter((item) => item.kind === kind).length],
+    ['Published', updatesList.filter((item) => item.kind === kind && item.status === 'Published').length],
+    ['Drafts', updatesList.filter((item) => item.kind === kind && item.status === 'Draft').length],
+  ]
+
   const handleSave = (status: 'Draft' | 'Published') => {
     const validHttpUrl = (value: string) => {
       try {
@@ -243,6 +367,11 @@ export function AdminDashboardPage() {
       setFormError('Add valid official source and apply links beginning with https:// or http://.')
       return
     }
+    const additionalLinks = jobAdditionalLinks.filter((link) => link.label.trim() || link.url.trim())
+    if (additionalLinks.some((link) => !link.label.trim() || (link.type === 'external' ? !validHttpUrl(link.url.trim()) : !link.url.startsWith('/') || link.url.startsWith('//')))) {
+      setFormError('Each extra link needs a label and a valid site path (internal) or http:// / https:// URL (external).')
+      return
+    }
 
     setFormError('')
     const nextJob: Job = {
@@ -251,7 +380,7 @@ export function AdminDashboardPage() {
       slug: (formData.title || 'new-job-opening').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       department: formData.department || 'Department Name',
       category: formData.category as Job['category'],
-      categoryLabel: categories.find((category) => category.slug === formData.category)?.name ?? 'Government Jobs',
+      categoryLabel: categoriesList.find((category) => category.slug === formData.category)?.name ?? 'Government Jobs',
       description: formData.description,
       qualification: formData.qualification,
       ageLimit: '18-40 years',
@@ -268,6 +397,7 @@ export function AdminDashboardPage() {
       advertisementUrl: '/pdfs/demo-job.pdf',
       officialApplyUrl: formData.officialApplyUrl,
       officialSourceUrl: formData.officialSourceUrl,
+      additionalLinks: additionalLinks.map((link) => ({ ...link, label: link.label.trim(), url: link.url.trim() })),
       seoTitle: `${formData.title || 'New Job'} | Pakistan Jobs Portal`,
       seoDescription: 'Professional job opening from Pakistan Jobs Portal.',
       seoKeywords: ['job', 'pakistan', formData.category],
@@ -283,6 +413,7 @@ export function AdminDashboardPage() {
     }
 
     setFormData(formDefaults)
+    setJobAdditionalLinks([])
     setEditingId(null)
     setPreviewMode(false)
   }
@@ -393,7 +524,7 @@ export function AdminDashboardPage() {
       </div>
 
       <div className={`mb-8 grid gap-4 ${activeSection === 'jobs' ? 'md:grid-cols-3 xl:grid-cols-6' : 'md:grid-cols-3'}`}>
-        {(activeSection === 'jobs' ? jobStats : activeSection === 'blogs' ? blogStats : sponsorStats).map(([label, value]) => (
+        {(activeSection === 'jobs' ? jobStats : activeSection === 'blogs' ? blogStats : activeSection === 'sponsors' ? sponsorStats : activeSection === 'admissions' ? academicStats('admissions') : activeSection === 'results' ? academicStats('results') : [['Job Types', categoriesList.length]]).map(([label, value]) => (
           <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm text-slate-500">{label}</p>
             <p className="mt-2 text-3xl font-black text-slate-900">{value}</p>
@@ -402,7 +533,7 @@ export function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
-        <nav aria-label="Admin sections" className="flex gap-2 lg:flex-col lg:gap-3">
+        <nav aria-label="Admin sections" className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-3">
           <button
             type="button"
             onClick={() => setActiveSection('jobs')}
@@ -412,6 +543,24 @@ export function AdminDashboardPage() {
             <BriefcaseBusiness className="h-5 w-5" />
             Jobs
             <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'jobs' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{jobsList.length}</span>
+          </button>
+          <button type="button" onClick={() => setActiveSection('admissions')} aria-current={activeSection === 'admissions' ? 'page' : undefined} className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition lg:flex-none ${activeSection === 'admissions' ? 'border-[#f7d154] bg-[#013d2d] text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-700/30 hover:bg-emerald-50'}`}>
+            <GraduationCap className="h-5 w-5" /> Admissions
+            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'admissions' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{updatesList.filter((item) => item.kind === 'admissions').length}</span>
+          </button>
+          <button type="button" onClick={() => setActiveSection('results')} aria-current={activeSection === 'results' ? 'page' : undefined} className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition lg:flex-none ${activeSection === 'results' ? 'border-[#f7d154] bg-[#013d2d] text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-700/30 hover:bg-emerald-50'}`}>
+            <ClipboardCheck className="h-5 w-5" /> Results
+            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'results' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{updatesList.filter((item) => item.kind === 'results').length}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSection('categories')}
+            aria-current={activeSection === 'categories' ? 'page' : undefined}
+            className={`flex flex-1 items-center gap-3 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition lg:flex-none ${activeSection === 'categories' ? 'border-[#f7d154] bg-[#013d2d] text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-700/30 hover:bg-emerald-50'}`}
+          >
+            <Tags className="h-5 w-5" />
+            Job Types
+            <span className={`ml-auto rounded-full px-2 py-0.5 text-xs ${activeSection === 'categories' ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'}`}>{categoriesList.length}</span>
           </button>
           <button
             type="button"
@@ -476,11 +625,12 @@ export function AdminDashboardPage() {
                 <input type="url" value={formData.officialApplyUrl} onChange={(event) => { handleFieldChange('officialApplyUrl', event.target.value); setFormError('') }} placeholder="https://official-site.gov.pk/apply" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
               </label>
             </div>
+            <ContentLinksEditor links={jobAdditionalLinks} onChange={setJobAdditionalLinks} />
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm font-medium text-slate-700">
                 Main category
                 <select value={formData.category} onChange={(event) => handleFieldChange('category', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500">
-                  {categories.map((category) => (
+                  {categoriesList.map((category) => (
                     <option key={category.slug} value={category.slug}>{category.name}</option>
                   ))}
                 </select>
@@ -529,7 +679,7 @@ export function AdminDashboardPage() {
               <p className="mt-3 text-lg font-semibold text-slate-900">Are you sure you want to publish this job?</p>
               <div className="mt-4 space-y-2 text-sm text-slate-700">
                 <p><span className="font-semibold">Job title:</span> {formData.title || 'New Job Opening'}</p>
-                <p><span className="font-semibold">Main category:</span> {categories.find((category) => category.slug === formData.category)?.name}</p>
+                <p><span className="font-semibold">Main category:</span> {categoriesList.find((category) => category.slug === formData.category)?.name}</p>
                 <p><span className="font-semibold">Department:</span> {formData.department || 'Department Name'}</p>
                 <p><span className="font-semibold">Description:</span> {formData.description || 'Add the full job description before publishing.'}</p>
                 <p><span className="font-semibold">Official source:</span> {formData.officialSourceUrl || 'Add an official source URL.'}</p>
@@ -566,7 +716,7 @@ export function AdminDashboardPage() {
                     <p className="text-sm text-slate-600">{job.department} • {job.status}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => { setEditingId(job.id); setFormData({ title: job.title, department: job.department, category: job.category, description: job.description, thumbnailUrl: job.thumbnailUrl, officialSourceUrl: job.officialSourceUrl, officialApplyUrl: job.officialApplyUrl, location: job.location, province: job.province, city: job.city, qualification: job.qualification, vacancies: String(job.vacancies), deadline: job.deadline, status: job.status }); setPreviewMode(false) }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
+                    <button onClick={() => { setEditingId(job.id); setFormData({ title: job.title, department: job.department, category: job.category, description: job.description, thumbnailUrl: job.thumbnailUrl, officialSourceUrl: job.officialSourceUrl, officialApplyUrl: job.officialApplyUrl, location: job.location, province: job.province, city: job.city, qualification: job.qualification, vacancies: String(job.vacancies), deadline: job.deadline, status: job.status }); setJobAdditionalLinks(job.additionalLinks ?? []); setPreviewMode(false) }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
                       <PencilLine className="h-3.5 w-3.5" /> Edit
                     </button>
                     <button onClick={() => handleClose(job.id)} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
@@ -578,7 +728,7 @@ export function AdminDashboardPage() {
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-sm text-slate-500">
-                  <span>{job.categoryLabel}</span>
+                  <span>{categoriesList.find((category) => category.slug === job.category)?.name ?? job.categoryLabel}</span>
                   <span>{job.deadline}</span>
                 </div>
               </div>
@@ -586,6 +736,105 @@ export function AdminDashboardPage() {
           </div>
         </section>
       </div>}
+
+      {(activeSection === 'admissions' || activeSection === 'results') && (() => {
+        const kind = activeSection
+        const title = kind === 'results' ? 'Result update' : 'Admission update'
+        const actionLabel = kind === 'results' ? 'Check result link' : 'Apply / admission link'
+        const records = updatesList.filter((item) => item.kind === kind)
+        return <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">{kind === 'results' ? 'Results desk' : 'Admissions desk'}</p>
+            <h2 className="mt-2 text-2xl font-black text-slate-900">{editingUpdateId ? `Edit ${title.toLowerCase()}` : `Add ${title.toLowerCase()}`}</h2>
+            <div className="mt-5 space-y-4">
+              <label className="block text-sm font-medium text-slate-700">Announcement title
+                <input value={updateForm.title} onChange={(event) => setUpdateForm((current) => ({ ...current, title: event.target.value }))} placeholder={kind === 'results' ? 'e.g. Board examination results announced' : 'e.g. Fall 2027 admissions open'} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">Department / institute / board
+                <input value={updateForm.department} onChange={(event) => setUpdateForm((current) => ({ ...current, department: event.target.value }))} placeholder="Organization name" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">Details
+                <textarea rows={5} value={updateForm.details} onChange={(event) => setUpdateForm((current) => ({ ...current, details: event.target.value }))} placeholder="Add key dates, eligibility, roll number, or other useful details" className="mt-1 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">Official source URL
+                <input type="url" value={updateForm.sourceUrl} onChange={(event) => setUpdateForm((current) => ({ ...current, sourceUrl: event.target.value }))} placeholder="https://official-department.gov.pk/notice" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">{actionLabel}
+                <input type="url" value={updateForm.actionUrl} onChange={(event) => setUpdateForm((current) => ({ ...current, actionUrl: event.target.value }))} placeholder="https://official-portal.gov.pk/..." className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+              </label>
+              <ContentLinksEditor links={updateAdditionalLinks} onChange={setUpdateAdditionalLinks} />
+              {updateError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{updateError}</p>}
+              <div className="flex flex-wrap gap-3">
+                <button type="button" onClick={() => { void handleSaveUpdate(kind, 'Draft') }} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Save draft</button>
+                <button type="button" onClick={() => { void handleSaveUpdate(kind, 'Published') }} className="rounded-xl bg-[#013d2d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#005b3f]">Publish {kind === 'results' ? 'result' : 'admission'}</button>
+                {editingUpdateId && <button type="button" onClick={() => { setUpdateForm(updateFormDefaults); setEditingUpdateId(null); setUpdateError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Published page content</p>
+            <h2 className="mt-2 text-2xl font-black text-slate-900">{kind === 'results' ? 'Results' : 'Admissions'}</h2>
+            <div className="mt-5 space-y-3">
+              {records.length ? records.map((item) => (
+                <article key={item.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-start">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-slate-900">{item.title}</h3>
+                    <p className="text-sm text-slate-600">{item.department} · {item.status} · {item.updatedAt}</p>
+                    <p className="mt-2 line-clamp-2 text-sm text-slate-500">{item.details}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => { setEditingUpdateId(item.id); setUpdateForm({ title: item.title, department: item.department, details: item.details, sourceUrl: item.sourceUrl, actionUrl: item.actionUrl }); setUpdateAdditionalLinks(item.additionalLinks ?? []); setUpdateError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                    <button type="button" onClick={() => { void saveUpdates((current) => current.filter((entry) => entry.id !== item.id)) }} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>
+                  </div>
+                </article>
+              )) : <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No {kind} updates yet. Add the first announcement here.</p>}
+            </div>
+          </div>
+        </section>
+      })()}
+
+      {activeSection === 'categories' && <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">All Jobs navigation</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-900">{editingCategoryId ? 'Edit job type' : 'Add a job type'}</h2>
+          <div className="mt-5 space-y-4">
+            <label className="block text-sm font-medium text-slate-700">Type name
+              <input value={categoryForm.name} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Remote Jobs" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">Short description
+              <textarea rows={3} value={categoryForm.description} onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe the jobs in this type" className="mt-1 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+            </label>
+            {editingCategoryId && <p className="text-xs text-slate-500">The URL slug stays unchanged when editing so existing job links remain stable.</p>}
+            {categoryError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{categoryError}</p>}
+            <div className="flex flex-wrap gap-3">
+              <button type="button" onClick={() => { void handleSaveCategory() }} className="rounded-xl bg-[#013d2d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#005b3f]">{editingCategoryId ? 'Save changes' : 'Add job type'}</button>
+              {editingCategoryId && <button type="button" onClick={() => { setCategoryForm({ name: '', description: '' }); setEditingCategoryId(null); setCategoryError('') }} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Available in All Jobs</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-900">Job types</h2>
+          <div className="mt-5 space-y-3">
+            {categoriesList.map((category) => (
+              <article key={category.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-slate-900">{category.name}</h3>
+                  <p className="mt-1 text-sm text-slate-600">{category.description || 'No description'}</p>
+                  <p className="mt-1 text-xs text-slate-400">/{category.slug}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => { setEditingCategoryId(category.id); setCategoryForm({ name: category.name, description: category.description }); setCategoryError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                  <button type="button" onClick={() => { void handleDeleteCategory(category) }} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>
+                </div>
+              </article>
+            ))}
+            {!categoriesList.length && <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No job types loaded. Check Supabase categories setup.</p>}
+          </div>
+        </div>
+      </section>}
 
       {activeSection === 'blogs' && <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -674,6 +923,16 @@ export function AdminDashboardPage() {
             <label className="block text-sm font-medium text-slate-700">Sponsor destination link
               <input type="url" value={sponsorForm.destinationUrl} onChange={(event) => setSponsorField('destinationUrl', event.target.value)} placeholder="https://sponsor.example" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
             </label>
+            <fieldset className="rounded-xl border border-slate-200 p-4">
+              <legend className="px-1 text-sm font-semibold text-slate-700">Social profiles (optional)</legend>
+              <div className="grid grid-cols-2 gap-3">
+                {([['instagram', 'Instagram'], ['facebook', 'Facebook'], ['pinterest', 'Pinterest'], ['tiktok', 'TikTok']] as const).map(([platform, label]) => (
+                  <label key={platform} className="block min-w-0 text-xs font-medium text-slate-600">{label}
+                    <input type="url" value={sponsorForm.socialLinks[platform]} onChange={(event) => setSponsorSocialLink(platform, event.target.value)} placeholder={`https://${platform}.com/...`} className="mt-1 h-10 w-full min-w-0 rounded-lg border border-slate-300 bg-slate-50 px-3 text-sm outline-none focus:border-[#005b3f]" />
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <label className="block text-sm font-medium text-slate-700">Close placement after
               <select value={sponsorExpiryDays} onChange={(event) => setSponsorExpiryDays(event.target.value as SponsorExpiryOption)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]">
                 <option value="">No automatic closing</option>
@@ -704,7 +963,7 @@ export function AdminDashboardPage() {
                   <p className="text-sm text-slate-600">{sponsor.status} · {sponsor.updatedAt}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { setEditingSponsorId(sponsor.id); setSponsorForm({ name: sponsor.name, description: sponsor.description, thumbnailUrl: sponsor.thumbnailUrl, destinationUrl: sponsor.destinationUrl }); setSponsorStatus(sponsor.status); setSponsorExpiryDays(sponsor.expiryDays ? String(sponsor.expiryDays) as SponsorExpiryOption : ''); setSponsorError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                  <button type="button" onClick={() => { setEditingSponsorId(sponsor.id); setSponsorForm({ name: sponsor.name, description: sponsor.description, thumbnailUrl: sponsor.thumbnailUrl, destinationUrl: sponsor.destinationUrl, socialLinks: { ...sponsorFormDefaults.socialLinks, ...sponsor.socialLinks } }); setSponsorStatus(sponsor.status); setSponsorExpiryDays(sponsor.expiryDays ? String(sponsor.expiryDays) as SponsorExpiryOption : ''); setSponsorError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
                   <button type="button" onClick={() => saveSponsors((current) => current.filter((item) => item.id !== sponsor.id))} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>
                 </div>
               </article>

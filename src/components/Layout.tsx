@@ -2,6 +2,7 @@ import { ChevronDown, ExternalLink, LayoutDashboard, Menu, ShieldCheck } from 'l
 import { useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import brandLogo from '../assets/logo/logo2.png'
+import { useCategories } from '../lib/categoryStore'
 import { useSponsors } from '../lib/sponsorStore'
 
 const primaryLinks = [
@@ -14,20 +15,21 @@ const primaryLinks = [
   { label: 'Disclaimer', to: '/disclaimer' },
 ]
 
-const jobLinks = [
-  { label: 'All Jobs', to: '/jobs' },
-  { label: 'Government Jobs', to: '/government' },
-  { label: 'Private Jobs', to: '/private' },
-  { label: 'Internships', to: '/internship' },
-  { label: 'Apprenticeships', to: '/apprenticeship' },
-  { label: 'Police & Forces', to: '/police' },
-  { label: 'Banking Jobs', to: '/banking' },
-  { label: 'Teaching Jobs', to: '/teaching' },
-  { label: 'Healthcare Jobs', to: '/healthcare' },
-  { label: 'Engineering Jobs', to: '/engineering' },
-  { label: 'IT Jobs', to: '/it' },
-  { label: 'Other Jobs', to: '/other' },
-]
+const legacyCategoryPaths: Record<string, string> = {
+  government: '/government',
+  private: '/private',
+  internship: '/internship',
+  apprenticeship: '/apprenticeship',
+  police: '/police',
+  banking: '/banking',
+  teaching: '/teaching',
+  healthcare: '/healthcare',
+  engineering: '/engineering',
+  it: '/it',
+  other: '/other',
+}
+
+const categoryPath = (slug: string) => legacyCategoryPaths[slug] ?? `/category/${slug}`
 
 const socialLinks = [
   { label: 'Instagram', href: 'https://www.instagram.com/pakjobinfo.pk?dlrf=eXB1NXpydHc5Nngw', icon: 'instagram', color: 'E4405F' },
@@ -40,6 +42,11 @@ export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const isAdminRoute = useLocation().pathname.startsWith('/admin')
   const sponsors = useSponsors().filter((sponsor) => sponsor.status === 'Published')
+  const categories = useCategories()
+  const jobLinks = [
+    { label: 'All Jobs', to: '/jobs' },
+    ...categories.map((category) => ({ label: category.name, to: categoryPath(category.slug) })),
+  ]
 
   const quickLinks = useMemo(
     () => [
@@ -196,16 +203,31 @@ export function Layout() {
               {!sponsors.length && <Link to="/contact" className="text-sm font-semibold text-[#005b3f] hover:underline">Want to advertise here?</Link>}
             </div>
             {sponsors.length ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {sponsors.map((sponsor) => (
-                  <a key={sponsor.id} href={sponsor.destinationUrl} target="_blank" rel="sponsored noopener noreferrer" className="group flex h-full items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-800/25 hover:shadow-md">
-                    <img src={sponsor.thumbnailUrl} alt="" loading="lazy" className="h-20 w-20 shrink-0 rounded-xl bg-slate-50 object-cover" />
-                    <span className="min-w-0">
-                      <span className="block truncate font-bold text-slate-900">{sponsor.name}</span>
-                      <span className="mt-1 block line-clamp-2 text-sm leading-5 text-slate-600">{sponsor.description}</span>
-                      <span className="mt-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Sponsored</span>
-                    </span>
-                  </a>
+                  <article key={sponsor.id} className="flex h-full flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-800/25 hover:shadow-md">
+                    <a href={sponsor.destinationUrl} target="_blank" rel="sponsored noopener noreferrer" className="group flex min-w-0 items-center gap-4">
+                      <img src={sponsor.thumbnailUrl} alt="" loading="lazy" className="h-24 w-24 shrink-0 rounded-xl bg-slate-50 object-cover" />
+                      <span className="min-w-0">
+                        <span className="block truncate font-bold text-slate-900">{sponsor.name}</span>
+                        <span className="mt-1 block line-clamp-2 text-sm leading-5 text-slate-600">{sponsor.description}</span>
+                        <span className="mt-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Sponsored · Visit</span>
+                      </span>
+                    </a>
+                    {Object.entries(sponsor.socialLinks ?? {}).filter(([, url]) => Boolean(url)).length > 0 && (
+                      <div className="flex justify-center gap-3 border-t border-slate-100 pt-4">
+                        {([
+                          ['instagram', 'Instagram', 'E4405F'],
+                          ['facebook', 'Facebook', '0866FF'],
+                          ['pinterest', 'Pinterest', 'BD081C'],
+                          ['tiktok', 'TikTok', '111111'],
+                        ] as const).map(([platform, label, color]) => {
+                          const url = sponsor.socialLinks?.[platform]
+                          return url ? <a key={platform} href={url} target="_blank" rel="noopener noreferrer" aria-label={`${sponsor.name} on ${label}`} title={label} className="flex size-9 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"><img src={`https://cdn.simpleicons.org/${platform}/${color}`} alt="" className="size-4" loading="lazy" /></a> : null
+                        })}
+                      </div>
+                    )}
+                  </article>
                 ))}
               </div>
             ) : (
@@ -218,52 +240,70 @@ export function Layout() {
       )}
 
       {!isAdminRoute && <footer className="border-t border-emerald-900/20 bg-[#013d2d] text-emerald-50">
-        <div className="mx-auto grid max-w-7xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_0.8fr] lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-7 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_0.8fr] lg:gap-12 lg:px-8 lg:py-12">
           <div>
-            <div className="mb-4 flex items-center gap-3">
-              <img src={brandLogo} alt="PakJobInfo" className="h-16 w-24 rounded-lg bg-white object-contain" />
+            <div className="mb-3 flex items-center gap-3 lg:mb-4">
+              <img src={brandLogo} alt="PakJobInfo" className="h-12 w-[4.5rem] rounded-lg bg-white object-contain lg:h-16 lg:w-24" />
               <div>
                 <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-200">Jobs & Career Updates</p>
               </div>
             </div>
-            <p className="max-w-md text-sm leading-6 text-emerald-50/80">
+            <p className="max-w-md text-xs leading-5 text-emerald-50/80 lg:text-sm lg:leading-6">
               We are an independent job information and updates website. We are not affiliated with any government department, recruitment agency, or official hiring authority.
             </p>
           </div>
 
-          <div>
-            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Quick links</p>
-            <ul className="space-y-2 text-sm">
+          <details className="group border-t border-white/10 py-3 lg:hidden">
+            <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-[0.1em] text-slate-200 [&::-webkit-details-marker]:hidden">Quick links</summary>
+            <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
               {quickLinks.slice(0, 6).map((link) => (
                 <li key={link.to}>
                   <Link to={link.to} className="hover:text-white">{link.label}</Link>
                 </li>
               ))}
             </ul>
+          </details>
+          <div className="hidden lg:block">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Quick links</p>
+            <ul className="space-y-2 text-sm">
+              {quickLinks.slice(0, 6).map((link) => <li key={link.to}><Link to={link.to} className="hover:text-white">{link.label}</Link></li>)}
+            </ul>
           </div>
 
-          <div>
-            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Company</p>
-            <ul className="space-y-2 text-sm">
+          <details className="group border-t border-white/10 py-3 lg:hidden">
+            <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-[0.1em] text-slate-200 [&::-webkit-details-marker]:hidden">Company</summary>
+            <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
               <li><Link to="/about" className="hover:text-white">About Us</Link></li>
               <li><Link to="/contact" className="hover:text-white">Contact Us</Link></li>
               <li><Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link></li>
               <li><Link to="/terms" className="hover:text-white">Terms & Conditions</Link></li>
             </ul>
+          </details>
+          <div className="hidden lg:block">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Company</p>
+            <ul className="space-y-2 text-sm">
+              <li><Link to="/about" className="hover:text-white">About Us</Link></li><li><Link to="/contact" className="hover:text-white">Contact Us</Link></li><li><Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link></li><li><Link to="/terms" className="hover:text-white">Terms & Conditions</Link></li>
+            </ul>
           </div>
 
-          <div>
-            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Legal</p>
-            <ul className="space-y-2 text-sm">
+          <details className="group border-t border-white/10 py-3 lg:hidden">
+            <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-[0.1em] text-slate-200 [&::-webkit-details-marker]:hidden">Legal</summary>
+            <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
               <li><Link to="/disclaimer" className="hover:text-white">Disclaimer</Link></li>
               <li><Link to="/editorial-policy" className="hover:text-white">Editorial Policy</Link></li>
               <li><Link to="/sitemap.xml" className="hover:text-white">Sitemap</Link></li>
             </ul>
+          </details>
+          <div className="hidden lg:block">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Legal</p>
+            <ul className="space-y-2 text-sm">
+              <li><Link to="/disclaimer" className="hover:text-white">Disclaimer</Link></li><li><Link to="/editorial-policy" className="hover:text-white">Editorial Policy</Link></li><li><Link to="/sitemap.xml" className="hover:text-white">Sitemap</Link></li>
+            </ul>
           </div>
 
           <div>
-            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200">Follow us</p>
-            <ul className="flex flex-wrap gap-3">
+            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-slate-200 lg:mb-4">Follow us</p>
+            <ul className="flex flex-wrap gap-2 lg:gap-3">
               {socialLinks.map((social) => (
                 <li key={social.label}>
                   <a
@@ -272,7 +312,7 @@ export function Layout() {
                     rel="noopener noreferrer"
                     aria-label={`PakJobInfo on ${social.label}`}
                     title={social.label}
-                    className="flex size-11 items-center justify-center rounded-lg border border-white/15 bg-white/5 transition hover:border-white/40 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f7d154]"
+                    className="flex size-10 items-center justify-center rounded-lg border border-white/15 bg-white/5 transition hover:border-white/40 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f7d154] lg:size-11"
                   >
                     <img src={`https://cdn.simpleicons.org/${social.icon}/${social.color}`} alt="" className="size-5" loading="lazy" />
                   </a>

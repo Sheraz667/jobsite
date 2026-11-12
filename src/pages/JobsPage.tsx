@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { JobCard } from '../components/JobCard'
-import { categories } from '../data/jobs'
+import { useCategories } from '../lib/categoryStore'
 import { useJobs } from '../lib/jobStore'
 import { usePageMeta } from '../lib/usePageMeta'
 
 export function JobsPage() {
   const jobs = useJobs()
+  const categories = useCategories()
   usePageMeta({ title: 'Latest Jobs in Pakistan | PakJobInfo', description: 'Search government jobs, private sector careers, and internships across Pakistan.' })
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
@@ -18,7 +19,7 @@ export function JobsPage() {
         job.department.toLowerCase().includes(search.toLowerCase()) ||
         job.location.toLowerCase().includes(search.toLowerCase())
 
-      const matchesCategory = selectedCategory === 'All' || job.categoryLabel === selectedCategory
+      const matchesCategory = selectedCategory === 'All' || job.category === selectedCategory
       const matchesProvince = selectedProvince === 'All' || job.province === selectedProvince
 
       return matchesSearch && matchesCategory && matchesProvince
@@ -39,7 +40,7 @@ export function JobsPage() {
             <select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)} className="w-full bg-transparent text-slate-800 outline-none">
               <option>All</option>
               {categories.map((category) => (
-                <option key={category.slug}>{category.name}</option>
+                <option key={category.slug} value={category.slug}>{category.name}</option>
               ))}
             </select>
           </label>

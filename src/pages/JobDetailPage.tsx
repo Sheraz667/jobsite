@@ -1,12 +1,16 @@
 import { ArrowRight, CalendarDays, MapPin, ShieldCheck, Sparkles } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import { ContentLinksList } from '../components/ContentLinksList'
+import { useCategories } from '../lib/categoryStore'
 import { useJobs } from '../lib/jobStore'
 import { usePageMeta } from '../lib/usePageMeta'
 
 export function JobDetailPage() {
   const { slug } = useParams()
   const jobs = useJobs()
+  const categories = useCategories()
   const job = jobs.find((item) => item.slug === slug)
+  const categoryName = job ? categories.find((category) => category.slug === job.category)?.name ?? job.categoryLabel : ''
 
   usePageMeta({
     title: job?.seoTitle || (job ? `${job.title} | PakJobInfo` : 'Job opportunity | PakJobInfo'),
@@ -34,7 +38,7 @@ export function JobDetailPage() {
           <div>
             <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">
               <Sparkles className="h-4 w-4" />
-              {job.categoryLabel}
+              {categoryName}
             </div>
             <h1 className="text-3xl font-black text-slate-900 sm:text-4xl">{job.title}</h1>
             <p className="mt-3 text-lg text-slate-600">{job.department}</p>
@@ -79,6 +83,7 @@ export function JobDetailPage() {
               <p><span className="font-semibold">Application URL:</span> <a href={job.officialApplyUrl} className="text-blue-700 hover:underline" target="_blank" rel="noreferrer">{job.officialApplyUrl}</a></p>
               <p><span className="font-semibold">Advertisement PDF:</span> <a href={job.advertisementUrl} className="text-blue-700 hover:underline">{job.advertisementUrl}</a></p>
             </div>
+            <ContentLinksList links={job.additionalLinks} />
           </section>
         </article>
 
@@ -138,7 +143,7 @@ export function JobDetailPage() {
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {relatedJobs.map((related) => (
             <Link key={related.id} to={`/jobs/${related.slug}`} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md">
-              <p className="text-sm font-semibold uppercase tracking-[0.15em] text-slate-500">{related.categoryLabel}</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.15em] text-slate-500">{categories.find((category) => category.slug === related.category)?.name ?? related.categoryLabel}</p>
               <h3 className="mt-3 text-xl font-bold text-slate-900">{related.title}</h3>
               <p className="mt-2 text-sm text-slate-600">{related.department}</p>
               <div className="mt-4 flex items-center justify-between text-sm text-slate-500">

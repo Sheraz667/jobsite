@@ -1,4 +1,5 @@
 export type SponsorStatus = 'Draft' | 'Published' | 'Closed'
+export type SponsorSocialPlatform = 'instagram' | 'facebook' | 'pinterest' | 'tiktok'
 
 export interface Sponsor {
   id: string
@@ -6,6 +7,7 @@ export interface Sponsor {
   description: string
   thumbnailUrl: string
   destinationUrl: string
+  socialLinks?: Partial<Record<SponsorSocialPlatform, string>>
   status: SponsorStatus
   expiryDays: 3 | 7 | 10 | null
   expiresAt: string | null

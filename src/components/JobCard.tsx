@@ -1,6 +1,7 @@
 import { ArrowRight, BriefcaseBusiness, MapPin } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useCategories } from '../lib/categoryStore'
 import type { Job } from '../types'
 
 interface JobCardProps {
@@ -19,6 +20,7 @@ const statusClasses: Record<string, string> = {
 
 export function JobCard({ job }: JobCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false)
+  const categoryName = useCategories().find((category) => category.slug === job.category)?.name ?? job.categoryLabel
 
   return (
     <article className="job-card group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(0,91,63,0.14)]">
@@ -41,7 +43,7 @@ export function JobCard({ job }: JobCardProps) {
       <div className="flex flex-1 flex-col p-5">
         <div className="mb-3 flex items-center justify-between gap-3 text-xs text-slate-500">
           <span className="rounded-full bg-slate-100 px-2 py-1 font-medium text-slate-700">
-            {job.categoryLabel}
+            {categoryName}
           </span>
           <span>{job.deadline}</span>
         </div>

@@ -1,18 +1,20 @@
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { JobCard } from '../components/JobCard'
-import { categories } from '../data/jobs'
+import { useCategories } from '../lib/categoryStore'
 import { useJobs } from '../lib/jobStore'
 import { usePageMeta } from '../lib/usePageMeta'
-import type { JobCategory } from '../types'
 
 interface CategoryPageProps {
-  categoryKey: JobCategory
+  categoryKey?: string
 }
 
 export function CategoryPage({ categoryKey }: CategoryPageProps) {
+  const params = useParams()
+  const categorySlug = categoryKey ?? params.slug ?? ''
+  const categories = useCategories()
   const jobs = useJobs()
-  const category = categories.find((item) => item.slug === categoryKey)
-  const publicJobs = jobs.filter((job) => !['Draft', 'Closed', 'Expired'].includes(job.status) && job.category === categoryKey)
+  const category = categories.find((item) => item.slug === categorySlug)
+  const publicJobs = jobs.filter((job) => !['Draft', 'Closed', 'Expired'].includes(job.status) && job.category === categorySlug)
 
   usePageMeta({
     title: `${category?.name ?? 'Jobs'} in Pakistan | PakJobInfo`,
