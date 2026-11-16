@@ -40,6 +40,11 @@ export function JobDetailPage() {
     )
   }
 
+  const hasLegacyDemoAdvertisement = job.advertisementUrl === '/pdfs/demo-job.pdf'
+  const ageLimit = hasLegacyDemoAdvertisement && job.ageLimit === '18-40 years' ? '' : job.ageLimit.trim()
+  const experience = hasLegacyDemoAdvertisement && job.experience === '1-3 years' ? '' : job.experience.trim()
+  const salary = hasLegacyDemoAdvertisement && job.salary === 'PKR 80,000 - 150,000' ? '' : job.salary?.trim() ?? ''
+  const advertisementUrl = hasLegacyDemoAdvertisement ? '' : job.advertisementUrl.trim()
   const relatedJobs = jobs.filter((item) => item.category === job.category && item.id !== job.id).slice(0, 3)
 
   return (
@@ -86,7 +91,7 @@ export function JobDetailPage() {
           <section>
             <h2 className="mb-4 text-2xl font-black text-slate-900">How to apply</h2>
             <ul className="list-disc space-y-2 pl-5 text-slate-700">
-              <li>Review the official advertisement and ensure you meet all eligibility criteria.</li>
+              <li>Review the official source and ensure you meet all eligibility criteria.</li>
               <li>Prepare the required documents, including educational certificates and CNIC copies.</li>
               <li>Submit your application via the official portal or official source announcement before the deadline.</li>
             </ul>
@@ -97,7 +102,7 @@ export function JobDetailPage() {
             <div className="space-y-2 text-sm">
               <p><span className="font-semibold">Source:</span> <a href={job.officialSourceUrl} className="text-blue-700 hover:underline" target="_blank" rel="noreferrer">{job.officialSourceUrl}</a></p>
               <p><span className="font-semibold">Application URL:</span> <a href={job.officialApplyUrl} className="text-blue-700 hover:underline" target="_blank" rel="noreferrer">{job.officialApplyUrl}</a></p>
-              <p><span className="font-semibold">Advertisement PDF:</span> <a href={job.advertisementUrl} className="text-blue-700 hover:underline">{job.advertisementUrl}</a></p>
+              {advertisementUrl && <p><span className="font-semibold">Advertisement PDF:</span> <a href={advertisementUrl} className="text-blue-700 hover:underline" target="_blank" rel="noreferrer">View advertisement PDF</a></p>}
             </div>
             <ContentLinksList links={job.additionalLinks} />
           </section>
@@ -119,18 +124,18 @@ export function JobDetailPage() {
                 <span>Province</span>
                 <span className="font-medium text-slate-900">{job.province}</span>
               </div>
-              <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+              {ageLimit && <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
                 <span>Age limit</span>
-                <span className="font-medium text-slate-900">{job.ageLimit}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+                <span className="font-medium text-slate-900">{ageLimit}</span>
+              </div>}
+              {experience && <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
                 <span>Experience</span>
-                <span className="font-medium text-slate-900">{job.experience}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4 pb-2">
+                <span className="font-medium text-slate-900">{experience}</span>
+              </div>}
+              {salary && <div className="flex items-center justify-between gap-4 pb-2">
                 <span>Salary</span>
-                <span className="font-medium text-slate-900">{job.salary ?? 'Not disclosed'}</span>
-              </div>
+                <span className="font-medium text-slate-900">{salary}</span>
+              </div>}
             </div>
           </div>
 

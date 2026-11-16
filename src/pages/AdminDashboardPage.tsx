@@ -27,6 +27,10 @@ const formDefaults = {
   category: 'government',
   description: '',
   thumbnailUrl: '',
+  ageLimit: '',
+  experience: '',
+  salary: '',
+  advertisementUrl: '',
   officialSourceUrl: '',
   officialApplyUrl: '',
   location: 'Lahore',
@@ -51,6 +55,17 @@ const blogFormDefaults = {
     youtube: '',
     twitter: '',
   },
+}
+
+function getJobOptionalFormValues(job: Job) {
+  const hasLegacyDemoAdvertisement = job.advertisementUrl === '/pdfs/demo-job.pdf'
+
+  return {
+    ageLimit: hasLegacyDemoAdvertisement && job.ageLimit === '18-40 years' ? '' : job.ageLimit,
+    experience: hasLegacyDemoAdvertisement && job.experience === '1-3 years' ? '' : job.experience,
+    salary: hasLegacyDemoAdvertisement && job.salary === 'PKR 80,000 - 150,000' ? '' : job.salary ?? '',
+    advertisementUrl: hasLegacyDemoAdvertisement ? '' : job.advertisementUrl,
+  }
 }
 
 const sponsorFormDefaults = {
@@ -604,6 +619,11 @@ export function AdminDashboardPage() {
       setFormError('Add valid official source and apply links beginning with https:// or http://.')
       return
     }
+    const advertisementUrl = formData.advertisementUrl.trim()
+    if (advertisementUrl && !validHttpUrl(advertisementUrl) && !(advertisementUrl.startsWith('/') && !advertisementUrl.startsWith('//'))) {
+      setFormError('Advertisement PDF must use a public http:// or https:// URL, or a path on this site.')
+      return
+    }
     const additionalLinks = jobAdditionalLinks.filter((link) => link.label.trim() || link.url.trim())
     if (additionalLinks.some((link) => !link.label.trim() || (link.type === 'external' ? !validHttpUrl(link.url.trim()) : !link.url.startsWith('/') || link.url.startsWith('//')))) {
       setFormError('Each extra link needs a label and a valid site path (internal) or http:// / https:// URL (external).')
@@ -620,9 +640,9 @@ export function AdminDashboardPage() {
       categoryLabel: categoriesList.find((category) => category.slug === formData.category)?.name ?? 'Government Jobs',
       description: formData.description,
       qualification: formData.qualification,
-      ageLimit: '18-40 years',
-      experience: '1-3 years',
-      salary: 'PKR 80,000 - 150,000',
+      ageLimit: formData.ageLimit.trim(),
+      experience: formData.experience.trim(),
+      salary: formData.salary.trim() || undefined,
       location: formData.location,
       province: formData.province,
       city: formData.city,
@@ -631,7 +651,7 @@ export function AdminDashboardPage() {
       deadline: formData.deadline,
       status,
       thumbnailUrl: normalizeImageUrl(formData.thumbnailUrl) || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=640&q=60',
-      advertisementUrl: '/pdfs/demo-job.pdf',
+      advertisementUrl,
       officialApplyUrl: formData.officialApplyUrl,
       officialSourceUrl: formData.officialSourceUrl,
       additionalLinks: additionalLinks.map((link) => ({ ...link, label: link.label.trim(), url: link.url.trim() })),
@@ -688,10 +708,14 @@ export function AdminDashboardPage() {
     const now = new Date().toISOString().slice(0, 10)
     const previousBlog = blogsList.find((blog) => blog.id === editingBlogId)
     const blogId = editingBlogId ?? `blog-${Date.now()}`
+    const slugBase = blogForm.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || blogId
+    const slug = blogsList.some((blog) => blog.id !== editingBlogId && blog.slug === slugBase)
+      ? `${slugBase}-${blogId}`
+      : slugBase
     const article: BlogArticle = {
       id: blogId,
       title: blogForm.title.trim(),
-      slug: blogForm.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      slug,
       excerpt: blogForm.excerpt.trim(),
       content: safeContent,
       thumbnailUrl: normalizeImageUrl(blogForm.thumbnailUrl) || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=960&q=65',
@@ -957,6 +981,26 @@ export function AdminDashboardPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm font-medium text-slate-700">
+                Age limit (optional)
+                <input value={formData.ageLimit} onChange={(event) => handleFieldChange('ageLimit', event.target.value)} placeholder="e.g. 18-30 years" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Experience (optional)
+                <input value={formData.experience} onChange={(event) => handleFieldChange('experience', event.target.value)} placeholder="e.g. 2 years" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
+              </label>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-medium text-slate-700">
+                Salary (optional)
+                <input value={formData.salary} onChange={(event) => handleFieldChange('salary', event.target.value)} placeholder="e.g. PKR 80,000 per month" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Advertisement PDF URL (optional)
+                <input value={formData.advertisementUrl} onChange={(event) => handleFieldChange('advertisementUrl', event.target.value)} placeholder="https://.../advertisement.pdf or /pdfs/advertisement.pdf" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
+              </label>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-medium text-slate-700">
                 Province
                 <input value={formData.province} onChange={(event) => handleFieldChange('province', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
               </label>
@@ -1031,7 +1075,7 @@ export function AdminDashboardPage() {
                     <p className="text-sm text-slate-600">{job.department} • {isJobDeadlinePassed(job, today) ? 'Expired' : job.status}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => { setEditingId(job.id); setFormData({ title: job.title, department: job.department, category: job.category, description: job.description, thumbnailUrl: job.thumbnailUrl, officialSourceUrl: job.officialSourceUrl, officialApplyUrl: job.officialApplyUrl, location: job.location, province: job.province, city: job.city, qualification: job.qualification, vacancies: String(job.vacancies), deadline: job.deadline, status: job.status }); setJobAdditionalLinks(job.additionalLinks ?? []); setPreviewMode(false) }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
+                    <button onClick={() => { setEditingId(job.id); setFormData({ title: job.title, department: job.department, category: job.category, description: job.description, thumbnailUrl: job.thumbnailUrl, officialSourceUrl: job.officialSourceUrl, officialApplyUrl: job.officialApplyUrl, location: job.location, province: job.province, city: job.city, qualification: job.qualification, vacancies: String(job.vacancies), deadline: job.deadline, status: job.status, ...getJobOptionalFormValues(job) }); setJobAdditionalLinks(job.additionalLinks ?? []); setPreviewMode(false) }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
                       <PencilLine className="h-3.5 w-3.5" /> Edit
                     </button>
                     <button onClick={() => handleClose(job.id)} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
