@@ -7,12 +7,18 @@ import { usePageMeta } from '../lib/usePageMeta'
 
 export function BlogDetailPage() {
   const { slug } = useParams()
-  const article = useBlogs().find((item) => item.slug === slug && item.status === 'Published')
+  const blogs = useBlogs()
+  const article = blogs.find((item) => item.slug === slug && item.status === 'Published')
+  const relatedArticles = article
+    ? blogs.filter((item) => item.status === 'Published' && item.id !== article.id && article.relatedArticleIds?.includes(item.id)).slice(0, 3)
+    : []
 
   usePageMeta({
     title: article ? `${article.title} | PakJobInfo` : 'Career article | PakJobInfo',
     description: article?.excerpt ?? 'Career guides and information from PakJobInfo.',
     image: article?.thumbnailUrl,
+    type: 'article',
+    robots: article ? 'index,follow' : 'noindex,follow',
   })
 
   if (!article) {
@@ -35,6 +41,23 @@ export function BlogDetailPage() {
       <img src={article.thumbnailUrl} alt="" className="mt-8 max-h-[30rem] w-full rounded-2xl object-cover" />
       <div className="rich-article mt-8 text-base leading-8 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeRichText(article.content) }} />
       <ContentLinksList links={article.additionalLinks} />
+      {relatedArticles.length > 0 && (
+        <section aria-labelledby="related-articles-heading" className="mt-12 border-t border-slate-200 pt-8">
+          <h2 id="related-articles-heading" className="text-2xl font-black text-slate-900">Related articles</h2>
+          <div className="mt-5 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
+            {relatedArticles.map((relatedArticle) => (
+              <Link key={relatedArticle.id} to={`/blogs/${relatedArticle.slug}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                <img src={relatedArticle.thumbnailUrl} alt="" loading="lazy" className="h-36 w-full object-cover sm:h-44" />
+                <div className="p-4">
+                  <h3 className="font-bold text-slate-900">{relatedArticle.title}</h3>
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{relatedArticle.excerpt}</p>
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#005b3f]">Read article <ExternalLink className="h-4 w-4" /></span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
       {article.socialLinks && Object.entries(article.socialLinks).some(([, url]) => Boolean(url)) && (
         <footer className="mt-10 border-t border-slate-200 pt-6">
           <p className="mb-3 text-sm font-semibold text-slate-700">Follow the author</p>

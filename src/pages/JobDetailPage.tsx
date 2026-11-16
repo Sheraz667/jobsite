@@ -14,11 +14,19 @@ export function JobDetailPage() {
   const categoryName = job ? categories.find((category) => category.slug === job.category)?.name ?? job.categoryLabel : ''
   const applicationClosed = job ? isJobUnavailable(job) : false
   const deadlinePassed = job ? isJobDeadlinePassed(job) : false
+  const defaultJobTitle = job ? `${job.title} Jobs in ${job.city} | PakJobInfo` : 'Job opportunity | PakJobInfo'
+  const defaultJobDescription = job
+    ? `${categoryName}: ${job.title} at ${job.department} in ${job.city}, ${job.province}. ${job.vacancies} vacancies; deadline ${job.deadline}. Check eligibility and application details.`
+    : 'Browse current government and private job opportunities across Pakistan.'
 
   usePageMeta({
-    title: job?.seoTitle || (job ? `${job.title} | PakJobInfo` : 'Job opportunity | PakJobInfo'),
-    description: job?.seoDescription || (job ? `${job.title} at ${job.department} in ${job.city}, ${job.province}. Apply by ${job.deadline}.` : 'Browse job opportunities across Pakistan.'),
+    title: job?.seoTitle && !job.seoTitle.endsWith('| Pakistan Jobs Portal') ? job.seoTitle : defaultJobTitle,
+    description: job?.seoDescription && job.seoDescription !== 'Professional job opening from Pakistan Jobs Portal.'
+      ? job.seoDescription
+      : defaultJobDescription,
     image: job?.thumbnailUrl,
+    type: 'article',
+    robots: job ? 'index,follow' : 'noindex,follow',
   })
 
   if (!job) {

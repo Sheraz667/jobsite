@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom'
+import { usePageMeta } from '../lib/usePageMeta'
 
 export function NotFoundPage() {
+  usePageMeta({ title: 'Page not found | PakJobInfo', description: 'The page you requested does not exist or may have moved.', robots: 'noindex,follow' })
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-20 text-center">
       <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">404</p>

@@ -8,7 +8,10 @@ import { usePageMeta } from '../lib/usePageMeta'
 export function JobsPage() {
   const jobs = useJobs()
   const categories = useCategories()
-  usePageMeta({ title: 'Latest Jobs in Pakistan | PakJobInfo', description: 'Search government jobs, private sector careers, and internships across Pakistan.' })
+  usePageMeta({
+    title: 'Latest Government & Private Jobs in Pakistan | PakJobInfo',
+    description: 'Search new government jobs, private jobs and internships in Pakistan. Check eligibility, locations, vacancies, deadlines and official application links.',
+  })
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedProvince, setSelectedProvince] = useState('All')

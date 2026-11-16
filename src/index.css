@@ -123,21 +123,6 @@ img {
   bottom: -80px;
 }
 
-.flag-hero-moon {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: min(52vw, 40rem);
-  height: 90%;
-  object-fit: contain;
-  object-position: center;
-  opacity: 0.025;
-  mix-blend-mode: screen;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-  z-index: 0;
-}
-
 [aria-label='Latest jobs carousel'] {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -298,13 +283,6 @@ img {
     letter-spacing: -0.04em;
   }
 
-  .flag-hero-moon {
-    top: 15rem;
-    left: 50%;
-    width: 100vw;
-    height: 45%;
-    opacity: 0.02;
-  }
 }
 
 .bg-blue-700,

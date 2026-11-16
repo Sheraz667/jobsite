@@ -11,14 +11,14 @@ interface AcademicUpdatesPageProps {
 
 const pageCopy = {
   admissions: {
-    title: 'Admissions',
-    description: 'Latest admission announcements, application details, and official links from universities and institutes.',
+    title: 'Admissions in Pakistan | Universities & Colleges',
+    description: 'Find the latest university and college admissions in Pakistan. Review eligibility, application dates and official admission links.',
     actionLabel: 'Apply / View admission',
     emptyTitle: 'No admission updates yet',
   },
   results: {
-    title: 'Results',
-    description: 'Recently announced results with department details, official sources, and result-check links.',
+    title: 'Results in Pakistan | Exam Results & Check Links',
+    description: 'Check the latest exam and recruitment results in Pakistan with official result links, announcement details and department sources.',
     actionLabel: 'Check result',
     emptyTitle: 'No result updates yet',
   },

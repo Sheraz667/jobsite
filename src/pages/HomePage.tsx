@@ -4,12 +4,14 @@ import { JobCard } from '../components/JobCard'
 import { useCategories } from '../lib/categoryStore'
 import { isJobUnavailable } from '../lib/jobDeadline'
 import { useJobs } from '../lib/jobStore'
-import heroImage from '../assets/logo/hero.png'
+import heroImage from '../assets/logo/hero-optimized.png'
 import { usePageMeta } from '../lib/usePageMeta'
-import moonImage from '../assets/logo/moon.png'
 
 export function HomePage() {
-  usePageMeta({ title: 'PakJobInfo | Jobs & Career Updates in Pakistan', description: 'Find verified government jobs, private sector careers, internships, admissions, and career opportunities across Pakistan.' })
+  usePageMeta({
+    title: 'Government & Private Jobs, Admissions & Results | PakJobInfo',
+    description: 'Find latest government and private jobs in Pakistan, plus admissions, exam results and internships. Check eligibility, deadlines and official application links.',
+  })
   const jobs = useJobs()
   const categories = useCategories()
   const publicJobs = jobs.filter((job) => !isJobUnavailable(job))
@@ -20,7 +22,6 @@ export function HomePage() {
   return (
     <div>
       <section className="flag-hero">
-        <img src={moonImage} alt="" aria-hidden="true" className="flag-hero-moon" />
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-12 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:px-8 lg:py-20">
           <div className="relative z-10 order-2 flex flex-col justify-center lg:order-1">
             <span className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white shadow-lg shadow-emerald-950/10">
@@ -73,7 +74,7 @@ export function HomePage() {
           </div>
           <div className="relative z-10 order-1 flex min-h-[220px] items-center justify-center lg:order-2 sm:min-h-[300px]">
             <div className="flex h-64 w-full max-w-[26rem] items-center justify-center rounded-3xl bg-white p-5 shadow-[0_24px_50px_rgba(0,20,10,0.3)] sm:h-80 sm:p-7 lg:h-96">
-              <img src={heroImage} alt="Pakistan jobs illustration" className="h-full w-full scale-125 object-contain" />
+              <img src={heroImage} alt="Pakistan jobs illustration" fetchPriority="high" decoding="async" className="h-full w-full scale-125 object-contain" />
             </div>
           </div>
         </div>

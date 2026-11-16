@@ -2,6 +2,7 @@
 alter table public.sponsors add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table public.sponsors add column if not exists additional_links jsonb not null default '[]'::jsonb;
 alter table public.blogs add column if not exists additional_links jsonb not null default '[]'::jsonb;
+alter table public.blogs add column if not exists related_article_ids jsonb not null default '[]'::jsonb;
 alter table public.jobs add column if not exists additional_links jsonb not null default '[]'::jsonb;
 
 create table if not exists public.static_pages (

@@ -16,7 +16,7 @@ export function BlogsPage() {
       </header>
 
       {articles.length ? (
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
           {articles.map((article) => (
             <article key={article.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
               <Link to={`/blogs/${article.slug}`} className="block">

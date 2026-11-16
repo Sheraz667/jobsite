@@ -11,6 +11,7 @@ export interface BlogArticle {
   content: string
   thumbnailUrl: string
   additionalLinks?: ContentLink[]
+  relatedArticleIds?: string[]
   socialLinks?: Partial<Record<BlogSocialPlatform, string>>
   status: BlogStatus
   createdAt: string

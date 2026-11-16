@@ -70,6 +70,7 @@ create table if not exists blogs (
   content text not null,
   thumbnail_url text,
   additional_links jsonb not null default '[]'::jsonb,
+  related_article_ids jsonb not null default '[]'::jsonb,
   social_links jsonb not null default '{}'::jsonb,
   status text not null default 'Draft' check (status in ('Draft','Published')),
   created_at timestamptz not null default now(),
@@ -78,6 +79,7 @@ create table if not exists blogs (
 
 alter table blogs add column if not exists social_links jsonb not null default '{}'::jsonb;
 alter table blogs add column if not exists additional_links jsonb not null default '[]'::jsonb;
+alter table blogs add column if not exists related_article_ids jsonb not null default '[]'::jsonb;
 
 create table if not exists admin_profiles (
   id uuid primary key default gen_random_uuid(),
@@ -218,6 +220,9 @@ create table if not exists page_views (
   created_at timestamptz default now()
 );
 
+alter table page_views enable row level security;
+revoke all on table page_views from anon, authenticated;
+
 create index if not exists jobs_category_idx on jobs(category_id);
 create index if not exists jobs_status_idx on jobs(status);
 create index if not exists jobs_deadline_idx on jobs(deadline);
@@ -270,7 +275,9 @@ create policy "Admins manage job tags" on job_tags for all using (exists (select
 
 drop policy if exists "Admins can read profile" on admin_profiles;
 drop policy if exists "Admins can read own profile" on admin_profiles;
-create policy "Admins can read own profile" on admin_profiles for select using (user_id = auth.uid());
+create policy "Admins can read own profile" on admin_profiles for select to authenticated using (user_id = auth.uid());
+revoke all on table admin_profiles from anon, authenticated;
+grant select on table admin_profiles to authenticated;
 drop policy if exists "Admins manage settings" on website_settings;
 create policy "Admins manage settings" on website_settings for all using (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin')) with check (exists (select 1 from admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
 

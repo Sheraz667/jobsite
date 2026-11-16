@@ -53,6 +53,7 @@ export async function reloadBlogs() {
     content: String(row.content),
     thumbnailUrl: normalizeImageUrl(String(row.thumbnail_url ?? '')),
     additionalLinks: Array.isArray(row.additional_links) ? row.additional_links as BlogArticle['additionalLinks'] : [],
+    relatedArticleIds: Array.isArray(row.related_article_ids) ? row.related_article_ids as string[] : [],
     socialLinks: row.social_links && typeof row.social_links === 'object'
       ? row.social_links as BlogArticle['socialLinks']
       : undefined,
@@ -98,6 +99,7 @@ export function saveBlogs(update: BlogArticle[] | ((current: BlogArticle[]) => B
         content: blog.content,
         thumbnail_url: blog.thumbnailUrl,
         additional_links: blog.additionalLinks ?? [],
+        related_article_ids: blog.relatedArticleIds ?? [],
         social_links: blog.socialLinks ?? {},
         status: blog.status,
         updated_at: blog.updatedAt,

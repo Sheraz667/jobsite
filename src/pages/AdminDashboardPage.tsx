@@ -12,6 +12,7 @@ import { reloadSponsors, saveSponsors, useSponsors } from '../lib/sponsorStore'
 import { reloadUpdates, saveUpdates, useUpdates } from '../lib/updateStore'
 import { defaultPages, reloadPages, savePage, usePages } from '../lib/pageStore'
 import { reloadFooterLinks, saveFooterLinks, useFooterLinks } from '../lib/footerLinkStore'
+import { usePageMeta } from '../lib/usePageMeta'
 import { isJobDeadlinePassed, isJobUnavailable, pakistanToday } from '../lib/jobDeadline'
 import type { CategoryDefinition, ContentLink, Job, JobStatus } from '../types'
 import type { BlogArticle, BlogSocialPlatform, BlogStatus } from '../types.blog'
@@ -65,6 +66,7 @@ const updateFormDefaults = { title: '', department: '', details: '', thumbnailUr
 type SponsorExpiryOption = '' | '3' | '7' | '10'
 
 export function AdminDashboardPage() {
+  usePageMeta({ title: 'Admin dashboard | PakJobInfo', description: 'PakJobInfo administrator dashboard.', robots: 'noindex,nofollow' })
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authPending, setAuthPending] = useState(true)
   const [activeSection, setActiveSection] = useState<'jobs' | 'categories' | 'admissions' | 'results' | 'blogs' | 'pages' | 'sponsors' | 'footer'>('jobs')
@@ -94,6 +96,7 @@ export function AdminDashboardPage() {
   const [editingBlogId, setEditingBlogId] = useState<string | null>(null)
   const [blogError, setBlogError] = useState('')
   const [blogAdditionalLinks, setBlogAdditionalLinks] = useState<ContentLink[]>([])
+  const [blogRelatedArticleIds, setBlogRelatedArticleIds] = useState<string[]>([])
   const [loginError, setLoginError] = useState('')
   const [sponsorForm, setSponsorForm] = useState(sponsorFormDefaults)
   const [sponsorStatus, setSponsorStatus] = useState<SponsorStatus>('Draft')
@@ -123,6 +126,11 @@ export function AdminDashboardPage() {
     let active = true
     let recoverySessionActive = false
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' && active) {
+        setIsAuthenticated(false)
+        setAuthPending(false)
+        setIsPasswordRecovery(false)
+      }
       if (event === 'PASSWORD_RECOVERY' && active) {
         recoverySessionActive = true
         setIsPasswordRecovery(true)
@@ -627,8 +635,8 @@ export function AdminDashboardPage() {
       officialApplyUrl: formData.officialApplyUrl,
       officialSourceUrl: formData.officialSourceUrl,
       additionalLinks: additionalLinks.map((link) => ({ ...link, label: link.label.trim(), url: link.url.trim() })),
-      seoTitle: `${formData.title || 'New Job'} | Pakistan Jobs Portal`,
-      seoDescription: 'Professional job opening from Pakistan Jobs Portal.',
+      seoTitle: `${formData.title || 'New Job'} | ${categoriesList.find((category) => category.slug === formData.category)?.name ?? 'Jobs'} in Pakistan | PakJobInfo`,
+      seoDescription: `${categoriesList.find((category) => category.slug === formData.category)?.name ?? 'Jobs'} in ${formData.city}, ${formData.province}: ${formData.title || 'Job opening'} at ${formData.department || 'the department'}. ${formData.vacancies} vacancies; deadline ${formData.deadline}. Check eligibility and official application details.`,
       seoKeywords: ['job', 'pakistan', formData.category],
       publishedAt: status === 'Published' ? new Date().toISOString().slice(0, 10) : undefined,
       createdAt: editingId ? jobsList.find((job) => job.id === editingId)?.createdAt ?? new Date().toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
@@ -679,8 +687,9 @@ export function AdminDashboardPage() {
 
     const now = new Date().toISOString().slice(0, 10)
     const previousBlog = blogsList.find((blog) => blog.id === editingBlogId)
+    const blogId = editingBlogId ?? `blog-${Date.now()}`
     const article: BlogArticle = {
-      id: editingBlogId ?? `blog-${Date.now()}`,
+      id: blogId,
       title: blogForm.title.trim(),
       slug: blogForm.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
       excerpt: blogForm.excerpt.trim(),
@@ -688,6 +697,7 @@ export function AdminDashboardPage() {
       thumbnailUrl: normalizeImageUrl(blogForm.thumbnailUrl) || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=960&q=65',
       socialLinks: Object.fromEntries(Object.entries(blogForm.socialLinks).filter(([, value]) => value.trim())) as BlogArticle['socialLinks'],
       additionalLinks: additionalLinks.map((link) => ({ ...link, label: link.label.trim(), url: link.url.trim() })),
+      relatedArticleIds: blogRelatedArticleIds.filter((id) => id !== blogId && blogsList.some((blog) => blog.id === id && blog.status === 'Published')),
       status,
       createdAt: previousBlog?.createdAt ?? now,
       updatedAt: now,
@@ -698,6 +708,7 @@ export function AdminDashboardPage() {
       : [article, ...current])
     setBlogForm(blogFormDefaults)
     setBlogAdditionalLinks([])
+    setBlogRelatedArticleIds([])
     setEditingBlogId(null)
     setBlogError('')
   }
@@ -1298,12 +1309,41 @@ export function AdminDashboardPage() {
               </div>
             </fieldset>
             <ContentLinksEditor links={blogAdditionalLinks} onChange={setBlogAdditionalLinks} />
+            <fieldset className="rounded-xl border border-slate-200 p-4">
+              <legend className="px-1 text-sm font-semibold text-slate-700">Related articles (optional)</legend>
+              <p className="mb-3 text-xs text-slate-500">Choose up to 3 published articles to show at the end of this post. {blogRelatedArticleIds.length}/3 selected.</p>
+              <div className="max-h-64 space-y-2 overflow-y-auto">
+                {blogsList.filter((blog) => blog.status === 'Published' && blog.id !== editingBlogId).map((blog) => {
+                  const selected = blogRelatedArticleIds.includes(blog.id)
+                  return (
+                    <label key={blog.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        disabled={!selected && blogRelatedArticleIds.length >= 3}
+                        onChange={(event) => setBlogRelatedArticleIds((current) => event.target.checked
+                          ? current.length < 3 ? [...current, blog.id] : current
+                          : current.filter((id) => id !== blog.id))}
+                        className="mt-1 accent-[#005b3f]"
+                      />
+                      <span className="min-w-0">
+                        <span className="block font-semibold text-slate-800">{blog.title}</span>
+                        <span className="mt-1 block line-clamp-2 text-xs text-slate-500">{blog.excerpt}</span>
+                      </span>
+                    </label>
+                  )
+                })}
+                {!blogsList.some((blog) => blog.status === 'Published' && blog.id !== editingBlogId) && (
+                  <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">Publish another article first to add related articles.</p>
+                )}
+              </div>
+            </fieldset>
             {blogForm.thumbnailUrl && <img src={normalizeImageUrl(blogForm.thumbnailUrl)} alt="Article thumbnail preview" className="h-40 w-full rounded-xl object-cover" />}
             {blogError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{blogError}</p>}
             <div className="flex flex-wrap gap-3">
               <button type="button" onClick={() => { setBlogStatus('Draft'); handleSaveBlog('Draft') }} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold ${blogStatus === 'Draft' ? 'border-[#005b3f] bg-emerald-50 text-[#013d2d]' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}>Save draft</button>
               <button type="button" onClick={() => { setBlogStatus('Published'); handleSaveBlog('Published') }} className={`rounded-xl px-4 py-2.5 text-sm font-semibold text-white ${blogStatus === 'Published' ? 'bg-[#005b3f] ring-2 ring-[#f7d154]' : 'bg-[#013d2d] hover:bg-[#005b3f]'}`}>Publish article</button>
-              {editingBlogId && <button type="button" onClick={() => { setBlogForm(blogFormDefaults); setBlogAdditionalLinks([]); setEditingBlogId(null); setBlogError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
+              {editingBlogId && <button type="button" onClick={() => { setBlogForm(blogFormDefaults); setBlogAdditionalLinks([]); setBlogRelatedArticleIds([]); setEditingBlogId(null); setBlogError('') }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel edit</button>}
             </div>
           </div>
         </div>
@@ -1320,7 +1360,7 @@ export function AdminDashboardPage() {
                   <p className="text-sm text-slate-600">{blog.status} · {blog.updatedAt}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { setEditingBlogId(blog.id); setBlogForm({ title: blog.title, excerpt: blog.excerpt, content: blog.content, thumbnailUrl: blog.thumbnailUrl, socialLinks: { ...blogFormDefaults.socialLinks, ...blog.socialLinks } }); setBlogAdditionalLinks(blog.additionalLinks ?? []); setBlogStatus(blog.status); setBlogError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
+                  <button type="button" onClick={() => { setEditingBlogId(blog.id); setBlogForm({ title: blog.title, excerpt: blog.excerpt, content: blog.content, thumbnailUrl: blog.thumbnailUrl, socialLinks: { ...blogFormDefaults.socialLinks, ...blog.socialLinks } }); setBlogAdditionalLinks(blog.additionalLinks ?? []); setBlogRelatedArticleIds((blog.relatedArticleIds ?? []).filter((id) => blogsList.some((candidate) => candidate.id === id && candidate.status === 'Published' && candidate.id !== blog.id))); setBlogStatus(blog.status); setBlogError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
                   <button type="button" onClick={() => saveBlogs((current) => current.filter((item) => item.id !== blog.id))} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>
                 </div>
               </article>

@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import brandLogo from './assets/logo/logo2.png'
+import brandLogo from './assets/logo/logo2-optimized.png'
 import './index.css'
 import App from './App.tsx'
 

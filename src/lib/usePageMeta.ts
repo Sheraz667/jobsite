@@ -4,7 +4,11 @@ interface PageMeta {
   title: string
   description: string
   image?: string
+  type?: 'website' | 'article'
+  robots?: string
 }
+
+const siteOrigin = 'https://pakjobinfo.com'
 
 function setMeta(attribute: 'name' | 'property', key: string, value: string) {
   let element = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${key}"]`)
@@ -16,14 +20,39 @@ function setMeta(attribute: 'name' | 'property', key: string, value: string) {
   element.content = value
 }
 
-export function usePageMeta({ title, description, image }: PageMeta) {
+function removeMeta(attribute: 'name' | 'property', key: string) {
+  document.head.querySelector(`meta[${attribute}="${key}"]`)?.remove()
+}
+
+function shortDescription(description: string) {
+  const cleanDescription = description.trim().replace(/\s+/g, ' ')
+  if (cleanDescription.length <= 160) return cleanDescription
+  return `${cleanDescription.slice(0, 157).replace(/\s+\S*$/, '')}...`
+}
+
+export function usePageMeta({ title, description, image, type = 'website', robots = 'index,follow' }: PageMeta) {
   useEffect(() => {
+    const canonicalUrl = `${siteOrigin}${window.location.pathname}`
+    const metaDescription = shortDescription(description)
+    const imageUrl = image ? new URL(image, siteOrigin).href : undefined
+
     document.title = title
-    setMeta('name', 'description', description)
+    setMeta('name', 'description', metaDescription)
+    setMeta('name', 'robots', robots)
     setMeta('property', 'og:title', title)
-    setMeta('property', 'og:description', description)
-    setMeta('property', 'og:type', 'article')
-    if (image) setMeta('property', 'og:image', image)
+    setMeta('property', 'og:description', metaDescription)
+    setMeta('property', 'og:type', type)
+    setMeta('property', 'og:url', canonicalUrl)
+    setMeta('name', 'twitter:card', imageUrl ? 'summary_large_image' : 'summary')
+    setMeta('name', 'twitter:title', title)
+    setMeta('name', 'twitter:description', metaDescription)
+    if (imageUrl) {
+      setMeta('property', 'og:image', imageUrl)
+      setMeta('name', 'twitter:image', imageUrl)
+    } else {
+      removeMeta('property', 'og:image')
+      removeMeta('name', 'twitter:image')
+    }
 
     let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
     if (!canonical) {
@@ -31,6 +60,6 @@ export function usePageMeta({ title, description, image }: PageMeta) {
       canonical.rel = 'canonical'
       document.head.append(canonical)
     }
-    canonical.href = window.location.href
-  }, [title, description, image])
+    canonical.href = canonicalUrl
+  }, [title, description, image, type, robots])
 }

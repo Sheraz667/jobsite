@@ -1,7 +1,7 @@
 import { ChevronDown, ExternalLink, LayoutDashboard, Menu, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import brandLogo from '../assets/logo/logo2.png'
+import brandLogo from '../assets/logo/logo2-optimized.png'
 import { ContentLinksList } from './ContentLinksList'
 import { useCategories } from '../lib/categoryStore'
 import { useFooterLinks } from '../lib/footerLinkStore'

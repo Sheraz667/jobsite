@@ -19,7 +19,9 @@ export function CategoryPage({ categoryKey }: CategoryPageProps) {
 
   usePageMeta({
     title: `${category?.name ?? 'Jobs'} in Pakistan | PakJobInfo`,
-    description: category?.description ?? 'Browse current job opportunities across Pakistan.',
+    description: category
+      ? `Browse the latest ${category.name.toLowerCase()} in Pakistan. Check job requirements, locations, vacancies, deadlines and official application links.`
+      : 'Browse current government and private job opportunities across Pakistan.',
   })
 
   if (!category) {
