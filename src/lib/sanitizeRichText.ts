@@ -20,7 +20,11 @@ export function sanitizeRichText(html: string) {
 
   const copyNode = (node: Node, parent: HTMLElement) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      parent.append(document.createTextNode(node.textContent ?? ''))
+      const lines = (node.textContent ?? '').split(/\r\n?|\n/)
+      lines.forEach((line, index) => {
+        if (index > 0) parent.append(document.createElement('br'))
+        if (line) parent.append(document.createTextNode(line))
+      })
       return
     }
     if (!(node instanceof HTMLElement)) return

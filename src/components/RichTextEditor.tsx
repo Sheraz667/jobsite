@@ -10,21 +10,31 @@ const toolbarButtonClass = 'inline-flex h-9 w-9 items-center justify-center roun
 
 export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
+  const lastEmittedValueRef = useRef<string | null>(null)
   const savedRangeRef = useRef<Range | null>(null)
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
   const [linkHref, setLinkHref] = useState('')
   const [linkError, setLinkError] = useState('')
 
   useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value
+    const editor = editorRef.current
+    if (!editor) return
+    if (lastEmittedValueRef.current === value) {
+      lastEmittedValueRef.current = null
+      return
     }
+    if (editor.innerHTML !== value) editor.innerHTML = value
   }, [value])
+
+  const emitChange = (nextValue: string) => {
+    lastEmittedValueRef.current = nextValue
+    onChange(nextValue)
+  }
 
   const runCommand = (command: string, commandValue?: string) => {
     editorRef.current?.focus()
     document.execCommand(command, false, commandValue)
-    onChange(editorRef.current?.innerHTML ?? '')
+    emitChange(editorRef.current?.innerHTML ?? '')
   }
 
   const openLinkPanel = () => {
@@ -59,7 +69,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     selection.removeAllRanges()
     selection.addRange(savedRangeRef.current)
     document.execCommand('createLink', false, trimmedHref)
-    onChange(editor.innerHTML)
+    emitChange(editor.innerHTML)
     setLinkPanelOpen(false)
     setLinkError('')
   }
@@ -92,7 +102,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         aria-label="Full article"
         aria-multiline="true"
         data-placeholder="Write your article here. Select text to format it or add a link..."
-        onInput={(event) => onChange(event.currentTarget.innerHTML)}
+        onInput={(event) => emitChange(event.currentTarget.innerHTML)}
         className="rich-text-editor min-h-64 p-4 text-sm leading-7 text-slate-800 outline-none"
       />
       {linkPanelOpen && (

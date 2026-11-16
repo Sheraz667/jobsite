@@ -28,9 +28,9 @@ alter table public.static_pages enable row level security;
 drop policy if exists "Public static pages are readable" on public.static_pages;
 create policy "Public static pages are readable" on public.static_pages for select using (true);
 drop policy if exists "Admins manage static pages" on public.static_pages;
-create policy "Admins manage static pages" on public.static_pages for all
-using (exists (select 1 from public.admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'))
-with check (exists (select 1 from public.admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
+create policy "Admins manage static pages" on public.static_pages for all to authenticated
+using (public.is_admin())
+with check (public.is_admin());
 
 drop policy if exists "Public jobs are readable" on public.jobs;
 create policy "Public jobs are readable" on public.jobs for select using (
@@ -75,6 +75,6 @@ create policy "Public published academic updates are readable" on public.academi
 for select using (status = 'Published');
 
 drop policy if exists "Admins manage academic updates" on public.academic_updates;
-create policy "Admins manage academic updates" on public.academic_updates for all
-using (exists (select 1 from public.admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'))
-with check (exists (select 1 from public.admin_profiles p where p.user_id = auth.uid() and p.role = 'admin'));
+create policy "Admins manage academic updates" on public.academic_updates for all to authenticated
+using (public.is_admin())
+with check (public.is_admin());
