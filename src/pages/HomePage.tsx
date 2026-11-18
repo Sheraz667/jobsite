@@ -92,12 +92,12 @@ export function HomePage() {
               <Link to="/jobs" className="text-sm font-semibold text-[#005b3f]">Explore all jobs</Link>
             </div>
           </div>
-          <div aria-label="Latest jobs carousel" tabIndex={0} className="relative z-10 flex snap-x snap-mandatory touch-pan-x gap-5 overflow-x-auto overscroll-x-contain scroll-smooth pb-4">
+          <div aria-label="Latest jobs carousel" tabIndex={0} className="relative z-10 flex snap-x snap-mandatory touch-pan-x gap-2 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 lg:gap-4">
             {publicJobs
               .slice()
               .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
               .map((job) => (
-                <div key={job.id} className="w-[82vw] max-w-[340px] shrink-0 snap-start sm:w-[320px] xl:w-[340px]">
+                <div key={job.id} className="w-[calc((100%_-_1rem)/3)] shrink-0 snap-start lg:w-[calc((100%_-_3rem)/4)]">
                   <JobCard job={job} />
                 </div>
               ))}
