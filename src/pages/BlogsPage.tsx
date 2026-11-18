@@ -1,11 +1,12 @@
 import { ArrowRight, BookOpenText } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useBlogs } from '../lib/blogStore'
+import { sortByNewest } from '../lib/sortByNewest'
 import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { usePageMeta } from '../lib/usePageMeta'
 
 export function BlogsPage() {
-  const articles = useBlogs().filter((article) => article.status === 'Published')
+  const articles = sortByNewest(useBlogs().filter((article) => article.status === 'Published'))
   usePageMeta({ title: 'Career Guides & Articles | PakJobInfo', description: 'Practical career guides and information about jobs and applications in Pakistan.' })
 
   return (

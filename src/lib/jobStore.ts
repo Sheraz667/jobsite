@@ -163,7 +163,7 @@ export async function saveJobs(update: Job[] | ((current: Job[]) => Job[])) {
 
 export async function reloadJobs() {
   if (!isSupabaseConfigured) return
-  const { data, error } = await supabase.from('jobs').select('*')
+  const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false })
   if (error) {
     console.error('Job load failed:', error.message)
     return

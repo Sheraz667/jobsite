@@ -40,7 +40,7 @@ if (isSupabaseConfigured) {
 
 export async function reloadBlogs() {
   if (!isSupabaseConfigured) return
-  const { data, error } = await supabase.from('blogs').select('*')
+  const { data, error } = await supabase.from('blogs').select('*').order('created_at', { ascending: false })
   if (error) {
     console.error('Blog load failed:', error.message)
     return

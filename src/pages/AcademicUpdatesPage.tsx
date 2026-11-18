@@ -4,6 +4,7 @@ import { ContentLinksList } from '../components/ContentLinksList'
 import { ShareButton } from '../components/ShareButton'
 import { normalizeImageUrl } from '../lib/imageUrl'
 import { sanitizeRichText } from '../lib/sanitizeRichText'
+import { sortByNewest } from '../lib/sortByNewest'
 import { usePageMeta } from '../lib/usePageMeta'
 import { useUpdates } from '../lib/updateStore'
 import type { UpdateKind } from '../types.update'
@@ -29,7 +30,7 @@ const pageCopy = {
 
 export function AcademicUpdatesPage({ kind }: AcademicUpdatesPageProps) {
   const copy = pageCopy[kind]
-  const updates = useUpdates().filter((item) => item.kind === kind && item.status === 'Published')
+  const updates = sortByNewest(useUpdates().filter((item) => item.kind === kind && item.status === 'Published'))
   usePageMeta({ title: `${copy.title} | PakJobInfo`, description: copy.description })
 
   useEffect(() => {

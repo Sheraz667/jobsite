@@ -3,6 +3,7 @@ import { JobCard } from '../components/JobCard'
 import { useCategories } from '../lib/categoryStore'
 import { isJobUnavailable } from '../lib/jobDeadline'
 import { useJobs } from '../lib/jobStore'
+import { sortByNewest } from '../lib/sortByNewest'
 import { usePageMeta } from '../lib/usePageMeta'
 
 export function JobsPage() {
@@ -17,7 +18,7 @@ export function JobsPage() {
   const [selectedProvince, setSelectedProvince] = useState('All')
 
   const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => !isJobUnavailable(job)).filter((job) => {
+    return sortByNewest(jobs.filter((job) => !isJobUnavailable(job)).filter((job) => {
       const matchesSearch =
         job.title.toLowerCase().includes(search.toLowerCase()) ||
         job.department.toLowerCase().includes(search.toLowerCase()) ||
@@ -27,7 +28,7 @@ export function JobsPage() {
       const matchesProvince = selectedProvince === 'All' || job.province === selectedProvince
 
       return matchesSearch && matchesCategory && matchesProvince
-    })
+    }))
   }, [jobs, search, selectedCategory, selectedProvince])
 
   return (

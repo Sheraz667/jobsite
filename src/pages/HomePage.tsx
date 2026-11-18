@@ -4,6 +4,7 @@ import { JobCard } from '../components/JobCard'
 import { useCategories } from '../lib/categoryStore'
 import { isJobUnavailable } from '../lib/jobDeadline'
 import { useJobs } from '../lib/jobStore'
+import { sortByNewest } from '../lib/sortByNewest'
 import heroImage from '../assets/logo/hero-optimized.png'
 import { usePageMeta } from '../lib/usePageMeta'
 
@@ -14,7 +15,7 @@ export function HomePage() {
   })
   const jobs = useJobs()
   const categories = useCategories()
-  const publicJobs = jobs.filter((job) => !isJobUnavailable(job))
+  const publicJobs = sortByNewest(jobs.filter((job) => !isJobUnavailable(job)))
   const governmentJobs = publicJobs.filter((job) => job.category === 'government').slice(0, 3)
   const privateJobs = publicJobs.filter((job) => job.category === 'private').slice(0, 3)
   const internships = publicJobs.filter((job) => job.category === 'internship').slice(0, 3)
@@ -94,8 +95,6 @@ export function HomePage() {
           </div>
           <div aria-label="Latest jobs carousel" tabIndex={0} className="relative z-10 flex snap-x snap-mandatory touch-pan-x gap-2 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 lg:gap-4">
             {publicJobs
-              .slice()
-              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
               .map((job) => (
                 <div key={job.id} className="w-[calc((100%_-_1rem)/3)] shrink-0 snap-start lg:w-[calc((100%_-_3rem)/4)]">
                   <JobCard job={job} />
@@ -169,7 +168,7 @@ export function HomePage() {
             </div>
           </div>
           <div className="grid gap-6 lg:grid-cols-3">
-            {privateJobs.concat(internships).map((job) => (
+            {sortByNewest(privateJobs.concat(internships)).map((job) => (
               <JobCard key={job.id} job={job} />
             ))}
           </div>
