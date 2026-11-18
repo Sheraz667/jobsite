@@ -604,7 +604,18 @@ export function AdminDashboardPage() {
     ['Drafts', updatesList.filter((item) => item.kind === kind && item.status === 'Draft').length],
   ]
 
-  const handleSave = (status: 'Draft' | 'Published') => {
+  const saveJobsWithFeedback = async (update: Parameters<typeof saveJobs>[0]) => {
+    try {
+      await saveJobs(update)
+      return true
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setFormError(`Job could not be saved: ${message}`)
+      return false
+    }
+  }
+
+  const handleSave = async (status: 'Draft' | 'Published') => {
     const validHttpUrl = (value: string) => {
       try {
         return ['http:', 'https:'].includes(new URL(value).protocol)
@@ -669,11 +680,10 @@ export function AdminDashboardPage() {
       updatedAt: new Date().toISOString().slice(0, 10),
     }
 
-    if (editingId) {
-      saveJobs((current) => current.map((job) => (job.id === editingId ? { ...job, ...nextJob } : job)))
-    } else {
-      saveJobs((current) => [nextJob, ...current])
-    }
+    const saved = editingId
+      ? await saveJobsWithFeedback((current) => current.map((job) => (job.id === editingId ? { ...job, ...nextJob } : job)))
+      : await saveJobsWithFeedback((current) => [nextJob, ...current])
+    if (!saved) return
 
     setFormData(formDefaults)
     setJobAdditionalLinks([])
@@ -744,13 +754,13 @@ export function AdminDashboardPage() {
   }
 
   const handleClose = (jobId: string) => {
-    saveJobs((current) =>
+    void saveJobsWithFeedback((current) =>
       current.map((job) => (job.id === jobId ? { ...job, status: 'Closed', updatedAt: today } : job)),
     )
   }
 
   const handleDelete = (jobId: string) => {
-    saveJobs((current) => current.filter((job) => job.id !== jobId))
+    void saveJobsWithFeedback((current) => current.filter((job) => job.id !== jobId))
   }
 
   if (authPending) {

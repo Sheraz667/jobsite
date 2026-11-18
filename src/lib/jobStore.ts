@@ -131,29 +131,34 @@ export function useJobs() {
   return useSyncExternalStore(subscribeToJobs, getJobsSnapshot, () => isSupabaseConfigured ? [] : seedJobs)
 }
 
-export function saveJobs(update: Job[] | ((current: Job[]) => Job[])) {
+export async function saveJobs(update: Job[] | ((current: Job[]) => Job[])) {
   const previous = jobsSnapshot
-  jobsSnapshot = typeof update === 'function' ? update(jobsSnapshot) : update
-  try {
-    if (isSupabaseConfigured) localStorage.removeItem(storageKey)
-    else localStorage.setItem(storageKey, JSON.stringify(jobsSnapshot))
-  } catch {
-    // Keep the current session usable if browser storage is unavailable.
-  }
-  notify()
+  const nextJobs = typeof update === 'function' ? update(previous) : update
 
   if (isSupabaseConfigured) {
     const previousIds = new Set(previous.map((job) => job.id))
-    const nextIds = new Set(jobsSnapshot.map((job) => job.id))
-    const changed = jobsSnapshot.filter((job) => !previousIds.has(job.id) || JSON.stringify(job) !== JSON.stringify(previous.find((item) => item.id === job.id)))
-    void Promise.all([
+    const nextIds = new Set(nextJobs.map((job) => job.id))
+    const changed = nextJobs.filter((job) => !previousIds.has(job.id) || JSON.stringify(job) !== JSON.stringify(previous.find((item) => item.id === job.id)))
+    const results = await Promise.all([
       ...changed.map((job) => supabase.from('jobs').upsert(toDatabaseRow(job), { onConflict: 'external_id' })),
       ...previous.filter((job) => !nextIds.has(job.id)).map((job) => supabase.from('jobs').delete().eq('external_id', job.id)),
-    ]).then((results) => {
-      const failed = results.find((result) => result.error)
-      if (failed?.error) console.error('Job save failed:', failed.error.message)
-    })
+    ])
+    const failed = results.find((result) => result.error)
+    if (failed?.error) {
+      await reloadJobs()
+      throw new Error(failed.error.message)
+    }
+    try {
+      localStorage.removeItem(storageKey)
+    } catch {
+      // Supabase remains the source of truth when browser storage is unavailable.
+    }
+  } else {
+    localStorage.setItem(storageKey, JSON.stringify(nextJobs))
   }
+
+  jobsSnapshot = nextJobs
+  notify()
 }
 
 export async function reloadJobs() {
