@@ -33,10 +33,11 @@ const formDefaults = {
   advertisementUrl: '',
   officialSourceUrl: '',
   officialApplyUrl: '',
-  location: 'Lahore',
-  province: 'Punjab',
-  city: 'Lahore',
+  province: '',
+  city: '',
   qualification: 'Bachelor degree',
+  domicile: '',
+  bpsGrade: '',
   vacancies: '5',
   deadline: '2026-12-30',
   status: 'Draft' as JobStatus,
@@ -631,6 +632,7 @@ export function AdminDashboardPage() {
     }
 
     setFormError('')
+    const jobArea = [formData.city.trim(), formData.province.trim()].filter(Boolean).join(', ')
     const nextJob: Job = {
       id: editingId ?? `job-${Date.now()}`,
       title: formData.title || 'New Job Opening',
@@ -640,12 +642,14 @@ export function AdminDashboardPage() {
       categoryLabel: categoriesList.find((category) => category.slug === formData.category)?.name ?? 'Government Jobs',
       description: formData.description,
       qualification: formData.qualification,
+      domicile: formData.domicile.trim() || undefined,
+      bpsGrade: formData.bpsGrade.trim() || undefined,
       ageLimit: formData.ageLimit.trim(),
       experience: formData.experience.trim(),
       salary: formData.salary.trim() || undefined,
-      location: formData.location,
-      province: formData.province,
-      city: formData.city,
+      location: formData.city.trim(),
+      province: formData.province.trim(),
+      city: formData.city.trim(),
       vacancies: Number(formData.vacancies) || 1,
       startDate: new Date().toISOString().slice(0, 10),
       deadline: formData.deadline,
@@ -656,7 +660,7 @@ export function AdminDashboardPage() {
       officialSourceUrl: formData.officialSourceUrl,
       additionalLinks: additionalLinks.map((link) => ({ ...link, label: link.label.trim(), url: link.url.trim() })),
       seoTitle: `${formData.title || 'New Job'} | ${categoriesList.find((category) => category.slug === formData.category)?.name ?? 'Jobs'} in Pakistan | PakJobInfo`,
-      seoDescription: `${categoriesList.find((category) => category.slug === formData.category)?.name ?? 'Jobs'} in ${formData.city}, ${formData.province}: ${formData.title || 'Job opening'} at ${formData.department || 'the department'}. ${formData.vacancies} vacancies; deadline ${formData.deadline}. Check eligibility and official application details.`,
+      seoDescription: `${categoriesList.find((category) => category.slug === formData.category)?.name ?? 'Jobs'}${jobArea ? ` in ${jobArea}` : ''}: ${formData.title || 'Job opening'} at ${formData.department || 'the department'}. ${formData.vacancies} vacancies; deadline ${formData.deadline}. Check eligibility and official application details.`,
       seoKeywords: ['job', 'pakistan', formData.category],
       publishedAt: status === 'Published' ? new Date().toISOString().slice(0, 10) : undefined,
       createdAt: editingId ? jobsList.find((job) => job.id === editingId)?.createdAt ?? new Date().toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
@@ -981,6 +985,16 @@ export function AdminDashboardPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm font-medium text-slate-700">
+                Domicile (optional)
+                <input value={formData.domicile} onChange={(event) => handleFieldChange('domicile', event.target.value)} placeholder="e.g. Punjab, Sindh, Open Merit" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                BPS grade (optional)
+                <input value={formData.bpsGrade} onChange={(event) => handleFieldChange('bpsGrade', event.target.value)} placeholder="e.g. BPS-16" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
+              </label>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-medium text-slate-700">
                 Age limit (optional)
                 <input value={formData.ageLimit} onChange={(event) => handleFieldChange('ageLimit', event.target.value)} placeholder="e.g. 18-30 years" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
               </label>
@@ -1002,11 +1016,11 @@ export function AdminDashboardPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm font-medium text-slate-700">
                 Province
-                <input value={formData.province} onChange={(event) => handleFieldChange('province', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
+                <input value={formData.province} onChange={(event) => handleFieldChange('province', event.target.value)} placeholder="Enter province" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
               </label>
               <label className="block text-sm font-medium text-slate-700">
                 City
-                <input value={formData.city} onChange={(event) => handleFieldChange('city', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
+                <input value={formData.city} onChange={(event) => handleFieldChange('city', event.target.value)} placeholder="Enter city or location" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
               </label>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -1075,7 +1089,7 @@ export function AdminDashboardPage() {
                     <p className="text-sm text-slate-600">{job.department} • {isJobDeadlinePassed(job, today) ? 'Expired' : job.status}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => { setEditingId(job.id); setFormData({ title: job.title, department: job.department, category: job.category, description: job.description, thumbnailUrl: job.thumbnailUrl, officialSourceUrl: job.officialSourceUrl, officialApplyUrl: job.officialApplyUrl, location: job.location, province: job.province, city: job.city, qualification: job.qualification, vacancies: String(job.vacancies), deadline: job.deadline, status: job.status, ...getJobOptionalFormValues(job) }); setJobAdditionalLinks(job.additionalLinks ?? []); setPreviewMode(false) }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
+                    <button onClick={() => { setEditingId(job.id); setFormData({ title: job.title, department: job.department, category: job.category, description: job.description, thumbnailUrl: job.thumbnailUrl, officialSourceUrl: job.officialSourceUrl, officialApplyUrl: job.officialApplyUrl, province: job.province, city: job.city, qualification: job.qualification, domicile: job.domicile ?? '', bpsGrade: job.bpsGrade ?? '', vacancies: String(job.vacancies), deadline: job.deadline, status: job.status, ...getJobOptionalFormValues(job) }); setJobAdditionalLinks(job.additionalLinks ?? []); setPreviewMode(false) }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
                       <PencilLine className="h-3.5 w-3.5" /> Edit
                     </button>
                     <button onClick={() => handleClose(job.id)} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">

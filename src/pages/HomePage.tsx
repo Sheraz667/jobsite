@@ -125,7 +125,7 @@ export function HomePage() {
                     <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">{job.status}</span>
                   </div>
                   <div className="mt-3 flex items-center gap-4 text-sm text-slate-500">
-                    <span>{job.city}</span>
+                    {job.city && <span>{job.city}</span>}
                     <span>Deadline: {job.deadline}</span>
                   </div>
                 </Link>
@@ -149,7 +149,7 @@ export function HomePage() {
                     <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">{job.status}</span>
                   </div>
                   <div className="mt-3 flex items-center gap-4 text-sm text-slate-500">
-                    <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {job.city}</span>
+                    {job.city && <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {job.city}</span>}
                     <span>Apply by {job.deadline}</span>
                   </div>
                 </div>

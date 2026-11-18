@@ -22,6 +22,8 @@ create table if not exists jobs (
   subcategory text,
   description text not null,
   qualification text,
+  domicile text,
+  bps_grade text,
   age_limit text,
   experience text,
   salary text,
@@ -56,6 +58,8 @@ create table if not exists job_tags (
 
 alter table jobs add column if not exists category_slug text;
 alter table jobs add column if not exists subcategory text;
+alter table jobs add column if not exists domicile text;
+alter table jobs add column if not exists bps_grade text;
 alter table jobs add column if not exists seo_keywords text[] default '{}';
 alter table jobs add column if not exists featured boolean default false;
 alter table jobs add column if not exists additional_links jsonb not null default '[]'::jsonb;

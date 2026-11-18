@@ -14,9 +14,10 @@ export function JobDetailPage() {
   const categoryName = job ? categories.find((category) => category.slug === job.category)?.name ?? job.categoryLabel : ''
   const applicationClosed = job ? isJobUnavailable(job) : false
   const deadlinePassed = job ? isJobDeadlinePassed(job) : false
-  const defaultJobTitle = job ? `${job.title} Jobs in ${job.city} | PakJobInfo` : 'Job opportunity | PakJobInfo'
+  const defaultJobTitle = job ? `${job.title} Jobs${job.city ? ` in ${job.city}` : ''} | PakJobInfo` : 'Job opportunity | PakJobInfo'
+  const jobArea = job ? [job.city, job.province].filter(Boolean).join(', ') : ''
   const defaultJobDescription = job
-    ? `${categoryName}: ${job.title} at ${job.department} in ${job.city}, ${job.province}. ${job.vacancies} vacancies; deadline ${job.deadline}. Check eligibility and application details.`
+    ? `${categoryName}: ${job.title} at ${job.department}${jobArea ? ` in ${jobArea}` : ''}. ${job.vacancies} vacancies; deadline ${job.deadline}. Check eligibility and application details.`
     : 'Browse current government and private job opportunities across Pakistan.'
 
   usePageMeta({
@@ -46,6 +47,7 @@ export function JobDetailPage() {
   const salary = hasLegacyDemoAdvertisement && job.salary === 'PKR 80,000 - 150,000' ? '' : job.salary?.trim() ?? ''
   const advertisementUrl = hasLegacyDemoAdvertisement ? '' : job.advertisementUrl.trim()
   const relatedJobs = jobs.filter((item) => item.category === job.category && item.id !== job.id).slice(0, 3)
+  const jobLocation = [job.city, job.province].filter(Boolean).join(', ')
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -116,14 +118,22 @@ export function JobDetailPage() {
                 <span>Qualification</span>
                 <span className="font-medium text-slate-900">{job.qualification}</span>
               </div>
-              <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+              {job.domicile && <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+                <span>Domicile</span>
+                <span className="font-medium text-slate-900">{job.domicile}</span>
+              </div>}
+              {job.bpsGrade && <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+                <span>BPS grade</span>
+                <span className="font-medium text-slate-900">{job.bpsGrade}</span>
+              </div>}
+              {job.location.trim() && <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
                 <span>Location</span>
                 <span className="font-medium text-slate-900">{job.location}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+              </div>}
+              {job.province && <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
                 <span>Province</span>
                 <span className="font-medium text-slate-900">{job.province}</span>
-              </div>
+              </div>}
               {ageLimit && <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
                 <span>Age limit</span>
                 <span className="font-medium text-slate-900">{ageLimit}</span>
@@ -144,10 +154,10 @@ export function JobDetailPage() {
               <CalendarDays className="h-4 w-4 text-blue-700" />
               Published {job.publishedAt || job.createdAt}
             </div>
-            <div className="flex items-center gap-2 text-slate-700">
+            {jobLocation && <div className="flex items-center gap-2 text-slate-700">
               <MapPin className="h-4 w-4 text-emerald-700" />
-              {job.city}, {job.province}
-            </div>
+              {jobLocation}
+            </div>}
             <div className="mt-4 flex items-center gap-2 text-sm text-amber-700">
               <ShieldCheck className="h-4 w-4" />
               Independent job information source

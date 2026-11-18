@@ -23,6 +23,7 @@ export function JobCard({ job }: JobCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const categoryName = getCategoriesSnapshot().find((category) => category.slug === job.category)?.name ?? job.categoryLabel
   const displayStatus = isJobDeadlinePassed(job) ? 'Closed' : job.status
+  const jobLocation = [job.city, job.province].filter(Boolean).join(', ')
 
   return (
     <article className="job-card group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(0,91,63,0.14)]">
@@ -54,14 +55,16 @@ export function JobCard({ job }: JobCardProps) {
         <p className="mt-2 text-sm text-slate-600">{job.department}</p>
 
         <div className="mt-4 space-y-2 text-sm text-slate-600">
-          <div className="flex items-center gap-2">
+          {jobLocation && <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-emerald-600" />
-            {job.city}, {job.province}
-          </div>
+            {jobLocation}
+          </div>}
           <div className="flex items-center gap-2">
             <BriefcaseBusiness className="h-4 w-4 text-blue-600" />
             {job.qualification}
           </div>
+          {job.domicile && <div><span className="font-medium text-slate-700">Domicile:</span> {job.domicile}</div>}
+          {job.bpsGrade && <div><span className="font-medium text-slate-700">BPS grade:</span> {job.bpsGrade}</div>}
         </div>
 
         <div className="mt-5 flex items-center justify-between text-sm">

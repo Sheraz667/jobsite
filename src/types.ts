@@ -27,6 +27,8 @@ export interface Job {
   subcategory?: string
   description: string
   qualification: string
+  domicile?: string
+  bpsGrade?: string
   ageLimit: string
   experience: string
   salary?: string
