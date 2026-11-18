@@ -1,6 +1,7 @@
 import { ArrowLeft, CalendarDays, ExternalLink } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { ContentLinksList } from '../components/ContentLinksList'
+import { ShareButton } from '../components/ShareButton'
 import { useBlogs } from '../lib/blogStore'
 import { plainTextFromRichText, sanitizeRichText } from '../lib/sanitizeRichText'
 import { usePageMeta } from '../lib/usePageMeta'
@@ -35,7 +36,10 @@ export function BlogDetailPage() {
       <Link to="/blogs" className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-[#005b3f]"><ArrowLeft className="h-4 w-4" /> All articles</Link>
       <header>
         <p className="flex items-center gap-2 text-sm text-slate-500"><CalendarDays className="h-4 w-4" /> {article.updatedAt}</p>
-        <h1 className="mt-3 text-3xl font-black leading-tight text-slate-900 sm:text-4xl">{article.title}</h1>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+          <h1 className="min-w-0 text-3xl font-black leading-tight text-slate-900 sm:text-4xl">{article.title}</h1>
+          <ShareButton title={`${article.title} | PakJobInfo`} text={plainTextFromRichText(article.excerpt)} />
+        </div>
         <div className="rich-article mt-4 text-lg leading-8 text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichText(article.excerpt, { allowLinks: false }) }} />
       </header>
       <img src={article.thumbnailUrl} alt="" className="mt-8 max-h-[30rem] w-full rounded-2xl object-cover" />

@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { ArrowUpRight, CalendarDays, FileCheck2, Image as ImageIcon, Landmark } from 'lucide-react'
 import { ContentLinksList } from '../components/ContentLinksList'
+import { ShareButton } from '../components/ShareButton'
 import { normalizeImageUrl } from '../lib/imageUrl'
 import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { usePageMeta } from '../lib/usePageMeta'
@@ -30,6 +32,20 @@ export function AcademicUpdatesPage({ kind }: AcademicUpdatesPageProps) {
   const updates = useUpdates().filter((item) => item.kind === kind && item.status === 'Published')
   usePageMeta({ title: `${copy.title} | PakJobInfo`, description: copy.description })
 
+  useEffect(() => {
+    const fragment = window.location.hash.slice(1)
+    if (!fragment) return
+
+    let targetId: string
+    try {
+      targetId = decodeURIComponent(fragment)
+    } catch {
+      return
+    }
+
+    document.getElementById(targetId)?.scrollIntoView({ block: 'center' })
+  }, [kind, updates.length])
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
       <header className="mb-8 border-b border-emerald-900/10 pb-6">
@@ -40,28 +56,37 @@ export function AcademicUpdatesPage({ kind }: AcademicUpdatesPageProps) {
 
       {updates.length ? (
         <div className="divide-y divide-slate-200">
-          {updates.map((item) => (
-            <article key={item.id} className="grid gap-4 py-6 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:items-center">
-              <div className="flex aspect-square w-24 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-400 sm:w-24">
-                {item.thumbnailUrl ? <img src={normalizeImageUrl(item.thumbnailUrl)} alt="" loading="lazy" className="h-full w-full object-cover" /> : <ImageIcon className="size-6" />}
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                  <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-800"><Landmark className="size-3.5" />{item.department}</span>
-                  <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5" />{item.updatedAt}</span>
+          {updates.map((item) => {
+            const anchorId = `update-${item.id}`
+            const shareUrl = new URL(window.location.href)
+            shareUrl.hash = anchorId
+
+            return (
+              <article id={anchorId} key={item.id} className="grid gap-4 py-6 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:items-center">
+                <div className="flex aspect-square w-24 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-400 sm:w-24">
+                  {item.thumbnailUrl ? <img src={normalizeImageUrl(item.thumbnailUrl)} alt="" loading="lazy" className="h-full w-full object-cover" /> : <ImageIcon className="size-6" />}
                 </div>
-                <h2 className="mt-2 text-xl font-bold text-slate-900">{item.title}</h2>
-                <div className="rich-article mt-2 text-sm leading-6 text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichText(item.details) }} />
-                <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-800 hover:underline">
-                  Official source <ArrowUpRight className="size-4" />
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-800"><Landmark className="size-3.5" />{item.department}</span>
+                    <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5" />{item.updatedAt}</span>
+                  </div>
+                  <h2 className="mt-2 text-xl font-bold text-slate-900">{item.title}</h2>
+                  <div className="rich-article mt-2 text-sm leading-6 text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichText(item.details) }} />
+                  <div className="mt-3 flex flex-wrap items-center gap-4">
+                    <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-800 hover:underline">
+                      Official source <ArrowUpRight className="size-4" />
+                    </a>
+                    <ShareButton title={`${item.title} | PakJobInfo`} text={item.department} url={shareUrl.toString()} />
+                  </div>
+                </div>
+                <a href={item.actionUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#013d2d] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#005b3f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f7d154]">
+                  <FileCheck2 className="size-4" />{copy.actionLabel}
                 </a>
-              </div>
-              <a href={item.actionUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#013d2d] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#005b3f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f7d154]">
-                <FileCheck2 className="size-4" />{copy.actionLabel}
-              </a>
-              <div className="sm:col-span-3"><ContentLinksList links={item.additionalLinks} /></div>
-            </article>
-          ))}
+                <div className="sm:col-span-3"><ContentLinksList links={item.additionalLinks} /></div>
+              </article>
+            )
+          })}
         </div>
       ) : (
         <div className="border-y border-dashed border-slate-300 py-14 text-center">

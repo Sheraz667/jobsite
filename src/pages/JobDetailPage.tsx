@@ -1,6 +1,7 @@
 import { ArrowRight, CalendarDays, MapPin, ShieldCheck, Sparkles } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { ContentLinksList } from '../components/ContentLinksList'
+import { ShareButton } from '../components/ShareButton'
 import { useCategories } from '../lib/categoryStore'
 import { isJobDeadlinePassed, isJobUnavailable } from '../lib/jobDeadline'
 import { useJobs } from '../lib/jobStore'
@@ -59,7 +60,10 @@ export function JobDetailPage() {
               <Sparkles className="h-4 w-4" />
               {categoryName}
             </div>
-            <h1 className="text-3xl font-black text-slate-900 sm:text-4xl">{job.title}</h1>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <h1 className="min-w-0 text-3xl font-black text-slate-900 sm:text-4xl">{job.title}</h1>
+              <ShareButton title={`${job.title} | PakJobInfo`} text={`View this job at ${job.department}.`} />
+            </div>
             <p className="mt-3 text-lg text-slate-600">{job.department}</p>
             <div className="mt-5 flex flex-wrap gap-3">
               <span className={`rounded-full px-3 py-1 text-sm font-medium ${applicationClosed ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700'}`}>{deadlinePassed ? 'Closed' : job.status}</span>
