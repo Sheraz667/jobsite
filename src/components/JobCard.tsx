@@ -65,6 +65,7 @@ export function JobCard({ job }: JobCardProps) {
           </div>
           {job.domicile && <div><span className="font-medium text-slate-700">Domicile:</span> {job.domicile}</div>}
           {job.bpsGrade && <div><span className="font-medium text-slate-700">BPS grade:</span> {job.bpsGrade}</div>}
+          {job.employmentType && <div><span className="font-medium text-slate-700">Employment type:</span> {job.employmentType}</div>}
         </div>
 
         <div className="mt-5 flex items-center justify-between text-sm">

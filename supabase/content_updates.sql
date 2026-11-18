@@ -6,6 +6,7 @@ alter table public.blogs add column if not exists related_article_ids jsonb not 
 alter table public.jobs add column if not exists additional_links jsonb not null default '[]'::jsonb;
 alter table public.jobs add column if not exists domicile text;
 alter table public.jobs add column if not exists bps_grade text;
+alter table public.jobs add column if not exists employment_type text;
 
 create table if not exists public.static_pages (
   slug text primary key,

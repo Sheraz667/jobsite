@@ -9,6 +9,8 @@ export type JobStatus =
 
 export type JobCategory = string
 
+export type JobEmploymentType = 'Contract' | 'Regular'
+
 export type JobType = 'Full-time' | 'Part-time' | 'Contract' | 'Internship'
 
 export interface ContentLink {
@@ -29,6 +31,7 @@ export interface Job {
   qualification: string
   domicile?: string
   bpsGrade?: string
+  employmentType?: JobEmploymentType
   ageLimit: string
   experience: string
   salary?: string

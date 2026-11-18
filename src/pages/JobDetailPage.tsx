@@ -126,6 +126,10 @@ export function JobDetailPage() {
                 <span>BPS grade</span>
                 <span className="font-medium text-slate-900">{job.bpsGrade}</span>
               </div>}
+              {job.employmentType && <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+                <span>Employment type</span>
+                <span className="font-medium text-slate-900">{job.employmentType}</span>
+              </div>}
               {job.location.trim() && <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
                 <span>Location</span>
                 <span className="font-medium text-slate-900">{job.location}</span>

@@ -14,7 +14,7 @@ import { defaultPages, reloadPages, savePage, usePages } from '../lib/pageStore'
 import { reloadFooterLinks, saveFooterLinks, useFooterLinks } from '../lib/footerLinkStore'
 import { usePageMeta } from '../lib/usePageMeta'
 import { isJobDeadlinePassed, isJobUnavailable, pakistanToday } from '../lib/jobDeadline'
-import type { CategoryDefinition, ContentLink, Job, JobStatus } from '../types'
+import type { CategoryDefinition, ContentLink, Job, JobEmploymentType, JobStatus } from '../types'
 import type { BlogArticle, BlogSocialPlatform, BlogStatus } from '../types.blog'
 import type { Sponsor, SponsorSocialPlatform, SponsorStatus } from '../types.sponsor'
 import type { AcademicUpdate, UpdateKind, UpdateStatus } from '../types.update'
@@ -38,6 +38,7 @@ const formDefaults = {
   qualification: 'Bachelor degree',
   domicile: '',
   bpsGrade: '',
+  employmentType: '' as '' | JobEmploymentType,
   vacancies: '5',
   deadline: '2026-12-30',
   status: 'Draft' as JobStatus,
@@ -644,6 +645,7 @@ export function AdminDashboardPage() {
       qualification: formData.qualification,
       domicile: formData.domicile.trim() || undefined,
       bpsGrade: formData.bpsGrade.trim() || undefined,
+      employmentType: formData.employmentType || undefined,
       ageLimit: formData.ageLimit.trim(),
       experience: formData.experience.trim(),
       salary: formData.salary.trim() || undefined,
@@ -993,6 +995,14 @@ export function AdminDashboardPage() {
                 <input value={formData.bpsGrade} onChange={(event) => handleFieldChange('bpsGrade', event.target.value)} placeholder="e.g. BPS-16" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
               </label>
             </div>
+            <label className="block text-sm font-medium text-slate-700">
+              Employment type (optional)
+              <select value={formData.employmentType} onChange={(event) => handleFieldChange('employmentType', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500">
+                <option value="">Select employment type</option>
+                <option value="Regular">Regular</option>
+                <option value="Contract">Contract</option>
+              </select>
+            </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm font-medium text-slate-700">
                 Age limit (optional)
@@ -1089,7 +1099,7 @@ export function AdminDashboardPage() {
                     <p className="text-sm text-slate-600">{job.department} • {isJobDeadlinePassed(job, today) ? 'Expired' : job.status}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => { setEditingId(job.id); setFormData({ title: job.title, department: job.department, category: job.category, description: job.description, thumbnailUrl: job.thumbnailUrl, officialSourceUrl: job.officialSourceUrl, officialApplyUrl: job.officialApplyUrl, province: job.province, city: job.city, qualification: job.qualification, domicile: job.domicile ?? '', bpsGrade: job.bpsGrade ?? '', vacancies: String(job.vacancies), deadline: job.deadline, status: job.status, ...getJobOptionalFormValues(job) }); setJobAdditionalLinks(job.additionalLinks ?? []); setPreviewMode(false) }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
+                    <button onClick={() => { setEditingId(job.id); setFormData({ title: job.title, department: job.department, category: job.category, description: job.description, thumbnailUrl: job.thumbnailUrl, officialSourceUrl: job.officialSourceUrl, officialApplyUrl: job.officialApplyUrl, province: job.province, city: job.city, qualification: job.qualification, domicile: job.domicile ?? '', bpsGrade: job.bpsGrade ?? '', employmentType: job.employmentType ?? '', vacancies: String(job.vacancies), deadline: job.deadline, status: job.status, ...getJobOptionalFormValues(job) }); setJobAdditionalLinks(job.additionalLinks ?? []); setPreviewMode(false) }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
                       <PencilLine className="h-3.5 w-3.5" /> Edit
                     </button>
                     <button onClick={() => handleClose(job.id)} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
