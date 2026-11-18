@@ -6,7 +6,7 @@ import { deleteCategory, reloadCategories, saveCategory, useCategories } from '.
 import { reloadBlogs, saveBlogs, useBlogs } from '../lib/blogStore'
 import { normalizeImageUrl } from '../lib/imageUrl'
 import { reloadJobs, saveJobs, useJobs } from '../lib/jobStore'
-import { sanitizeRichText } from '../lib/sanitizeRichText'
+import { plainTextFromRichText, sanitizeRichText } from '../lib/sanitizeRichText'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { reloadSponsors, saveSponsors, useSponsors } from '../lib/sponsorStore'
 import { reloadUpdates, saveUpdates, useUpdates } from '../lib/updateStore'
@@ -339,7 +339,7 @@ export function AdminDashboardPage() {
       id: existing?.id ?? crypto.randomUUID(),
       slug,
       name,
-      description: categoryForm.description.trim(),
+      description: sanitizeRichText(categoryForm.description.trim()),
       accent: existing?.accent ?? 'bg-slate-100 text-slate-700',
     }
     const error = await saveCategory(category)
@@ -375,13 +375,13 @@ export function AdminDashboardPage() {
       ...pageForm,
       slug: selectedPageSlug,
       title: pageForm.title.trim(),
-      intro: pageForm.intro.trim(),
+      intro: sanitizeRichText(pageForm.intro.trim()),
       list: pageForm.list.map((item) => item.trim()).filter(Boolean),
       actionHref: actionHref || undefined,
       actionLabel: pageForm.actionLabel?.trim() || undefined,
       updatedAt: new Date().toISOString().slice(0, 10),
     }
-    if (!page.title || !page.intro) {
+    if (!page.title || !plainTextFromRichText(page.intro)) {
       setPageError('Page title and introduction are required.')
       return
     }
@@ -474,7 +474,8 @@ export function AdminDashboardPage() {
     const validUrl = (value: string) => {
       try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
     }
-    if (!updateForm.title.trim() || !updateForm.department.trim() || !updateForm.details.trim()) {
+    const details = sanitizeRichText(updateForm.details.trim())
+    if (!updateForm.title.trim() || !updateForm.department.trim() || !plainTextFromRichText(details)) {
       setUpdateError('Add a title, department or institute, and update details.')
       return
     }
@@ -494,7 +495,7 @@ export function AdminDashboardPage() {
       kind,
       title: updateForm.title.trim(),
       department: updateForm.department.trim(),
-      details: updateForm.details.trim(),
+      details,
       thumbnailUrl: normalizeImageUrl(updateForm.thumbnailUrl),
       sourceUrl: updateForm.sourceUrl.trim(),
       actionUrl: updateForm.actionUrl.trim(),
@@ -527,7 +528,8 @@ export function AdminDashboardPage() {
     const validUrl = (value: string) => {
       try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
     }
-    if (!sponsorForm.name.trim() || !sponsorForm.description.trim() || !sponsorForm.thumbnailUrl.trim() || !sponsorForm.destinationUrl.trim()) {
+    const description = sanitizeRichText(sponsorForm.description.trim(), { allowLinks: false })
+    if (!sponsorForm.name.trim() || !plainTextFromRichText(description) || !sponsorForm.thumbnailUrl.trim() || !sponsorForm.destinationUrl.trim()) {
       setSponsorError('Add a sponsor name, thumbnail, short description, and destination link.')
       return
     }
@@ -557,7 +559,7 @@ export function AdminDashboardPage() {
     const sponsor: Sponsor = {
       id: editingSponsorId ?? `sponsor-${Date.now()}`,
       name: sponsorForm.name.trim(),
-      description: sponsorForm.description.trim(),
+      description,
       thumbnailUrl: normalizeImageUrl(sponsorForm.thumbnailUrl),
       destinationUrl: sponsorForm.destinationUrl.trim(),
       socialLinks: Object.fromEntries(Object.entries(sponsorForm.socialLinks).filter(([, value]) => value.trim()).map(([platform, value]) => [platform, value.trim()])) as Sponsor['socialLinks'],
@@ -616,6 +618,7 @@ export function AdminDashboardPage() {
   }
 
   const handleSave = async (status: 'Draft' | 'Published') => {
+    const description = sanitizeRichText(formData.description.trim())
     const validHttpUrl = (value: string) => {
       try {
         return ['http:', 'https:'].includes(new URL(value).protocol)
@@ -624,7 +627,7 @@ export function AdminDashboardPage() {
       }
     }
 
-    if (!formData.description.trim()) {
+    if (!plainTextFromRichText(description)) {
       setFormError('Please add the full job description before saving.')
       return
     }
@@ -652,7 +655,7 @@ export function AdminDashboardPage() {
       department: formData.department || 'Department Name',
       category: formData.category as Job['category'],
       categoryLabel: categoriesList.find((category) => category.slug === formData.category)?.name ?? 'Government Jobs',
-      description: formData.description,
+      description,
       qualification: formData.qualification,
       domicile: formData.domicile.trim() || undefined,
       bpsGrade: formData.bpsGrade.trim() || undefined,
@@ -693,9 +696,10 @@ export function AdminDashboardPage() {
 
   const handleSaveBlog = (status: BlogStatus) => {
     const safeContent = sanitizeRichText(blogForm.content)
-    const contentText = new DOMParser().parseFromString(safeContent, 'text/html').body.textContent?.trim()
+    const excerpt = sanitizeRichText(blogForm.excerpt.trim(), { allowLinks: false })
+    const contentText = plainTextFromRichText(safeContent)
 
-    if (!blogForm.title.trim() || !blogForm.excerpt.trim() || !contentText) {
+    if (!blogForm.title.trim() || !plainTextFromRichText(excerpt) || !contentText) {
       setBlogError('Add an article title, short summary, and full article before saving.')
       return
     }
@@ -732,7 +736,7 @@ export function AdminDashboardPage() {
       id: blogId,
       title: blogForm.title.trim(),
       slug,
-      excerpt: blogForm.excerpt.trim(),
+      excerpt,
       content: safeContent,
       thumbnailUrl: normalizeImageUrl(blogForm.thumbnailUrl) || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=960&q=65',
       socialLinks: Object.fromEntries(Object.entries(blogForm.socialLinks).filter(([, value]) => value.trim())) as BlogArticle['socialLinks'],
@@ -963,7 +967,9 @@ export function AdminDashboardPage() {
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Full job description
-              <textarea rows={6} value={formData.description} onChange={(event) => { handleFieldChange('description', event.target.value); setFormError('') }} placeholder="Add responsibilities, eligibility details, and application instructions..." className="mt-1 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
+              <div className="mt-1">
+                <RichTextEditor label="Job description" value={formData.description} onChange={(value) => { handleFieldChange('description', value); setFormError('') }} />
+              </div>
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Thumbnail image URL (Google Drive share link supported)
@@ -1074,7 +1080,7 @@ export function AdminDashboardPage() {
                 <p><span className="font-semibold">Job title:</span> {formData.title || 'New Job Opening'}</p>
                 <p><span className="font-semibold">Main category:</span> {categoriesList.find((category) => category.slug === formData.category)?.name}</p>
                 <p><span className="font-semibold">Department:</span> {formData.department || 'Department Name'}</p>
-                <p><span className="font-semibold">Description:</span> {formData.description || 'Add the full job description before publishing.'}</p>
+                <div><span className="font-semibold">Description:</span><div className="rich-article mt-1" dangerouslySetInnerHTML={{ __html: sanitizeRichText(formData.description) }} /></div>
                 <p><span className="font-semibold">Official source:</span> {formData.officialSourceUrl || 'Add an official source URL.'}</p>
                 <p><span className="font-semibold">Apply link:</span> {formData.officialApplyUrl || 'Add an application URL.'}</p>
                 <p><span className="font-semibold">Deadline:</span> {formData.deadline}</p>
@@ -1147,7 +1153,9 @@ export function AdminDashboardPage() {
                 <input value={updateForm.department} onChange={(event) => setUpdateForm((current) => ({ ...current, department: event.target.value }))} placeholder="Organization name" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
               </label>
               <label className="block text-sm font-medium text-slate-700">Details
-                <textarea rows={5} value={updateForm.details} onChange={(event) => setUpdateForm((current) => ({ ...current, details: event.target.value }))} placeholder="Add key dates, eligibility, roll number, or other useful details" className="mt-1 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+                <div className="mt-1">
+                  <RichTextEditor label="Update details" value={updateForm.details} onChange={(details) => setUpdateForm((current) => ({ ...current, details }))} />
+                </div>
               </label>
               <label className="block text-sm font-medium text-slate-700">Thumbnail image URL (Google Drive share link supported)
                 <input value={updateForm.thumbnailUrl} onChange={(event) => setUpdateForm((current) => ({ ...current, thumbnailUrl: event.target.value }))} placeholder="Paste a public Google Drive image link or direct image URL" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
@@ -1179,7 +1187,7 @@ export function AdminDashboardPage() {
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-slate-900">{item.title}</h3>
                     <p className="text-sm text-slate-600">{item.department} · {item.status} · {item.updatedAt}</p>
-                    <p className="mt-2 line-clamp-2 text-sm text-slate-500">{item.details}</p>
+                    <div className="rich-article mt-2 line-clamp-2 text-sm text-slate-500" dangerouslySetInnerHTML={{ __html: sanitizeRichText(item.details) }} />
                   </div>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => { setEditingUpdateId(item.id); setUpdateForm({ title: item.title, department: item.department, details: item.details, thumbnailUrl: item.thumbnailUrl, sourceUrl: item.sourceUrl, actionUrl: item.actionUrl }); setUpdateAdditionalLinks(item.additionalLinks ?? []); setUpdateError('') }} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">Edit</button>
@@ -1201,7 +1209,9 @@ export function AdminDashboardPage() {
               <input value={categoryForm.name} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Remote Jobs" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
             </label>
             <label className="block text-sm font-medium text-slate-700">Short description
-              <textarea rows={3} value={categoryForm.description} onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe the jobs in this type" className="mt-1 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+              <div className="mt-1">
+                <RichTextEditor label="Job type description" value={categoryForm.description} onChange={(description) => setCategoryForm((current) => ({ ...current, description }))} />
+              </div>
             </label>
             {editingCategoryId && <p className="text-xs text-slate-500">The URL slug stays unchanged when editing so existing job links remain stable.</p>}
             {categoryError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{categoryError}</p>}
@@ -1220,7 +1230,9 @@ export function AdminDashboardPage() {
               <article key={category.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
                   <h3 className="font-bold text-slate-900">{category.name}</h3>
-                  <p className="mt-1 text-sm text-slate-600">{category.description || 'No description'}</p>
+                  {category.description
+                    ? <div className="rich-article mt-1 text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichText(category.description) }} />
+                    : <p className="mt-1 text-sm text-slate-600">No description</p>}
                   <p className="mt-1 text-xs text-slate-400">/{category.slug}</p>
                 </div>
                 <div className="flex gap-2">
@@ -1252,7 +1264,9 @@ export function AdminDashboardPage() {
               <input value={pageForm.title} onChange={(event) => { setPageForm((current) => ({ ...current, title: event.target.value })); setPageSaved(false) }} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" />
             </label>
             <label className="block text-sm font-semibold text-slate-700">Introduction
-              <textarea rows={5} value={pageForm.intro} onChange={(event) => { setPageForm((current) => ({ ...current, intro: event.target.value })); setPageSaved(false) }} className="mt-1.5 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" />
+              <div className="mt-1.5">
+                <RichTextEditor label="Page introduction" value={pageForm.intro} onChange={(intro) => { setPageForm((current) => ({ ...current, intro })); setPageSaved(false) }} />
+              </div>
             </label>
             <label className="block text-sm font-semibold text-slate-700">Bullet points <span className="font-normal text-slate-500">(one per line)</span>
               <textarea rows={5} value={pageForm.list.join('\n')} onChange={(event) => { setPageForm((current) => ({ ...current, list: event.target.value.split('\n') })); setPageSaved(false) }} className="mt-1.5 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" />
@@ -1278,7 +1292,7 @@ export function AdminDashboardPage() {
         <aside className="rounded-xl border border-slate-200 bg-[#f5f8f6] p-5 sm:p-6">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-800">Page preview</p>
           <h3 className="mt-2 text-2xl font-black text-slate-950">{pageForm.title}</h3>
-          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">{pageForm.intro}</p>
+          <div className="rich-article mt-3 text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeRichText(pageForm.intro) }} />
           {pageForm.list.filter((item) => item.trim()).length > 0 && <ul className="mt-4 space-y-2 pl-5 text-sm text-slate-700">{pageForm.list.filter((item) => item.trim()).map((item, index) => <li key={`${index}-${item}`} className="list-disc">{item}</li>)}</ul>}
           {pageForm.actionLabel && <span className="mt-5 inline-flex rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-semibold text-white">{pageForm.actionLabel}</span>}
         </aside>
@@ -1359,11 +1373,13 @@ export function AdminDashboardPage() {
               <input value={blogForm.title} onChange={(event) => setBlogField('title', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
             </label>
             <label className="block text-sm font-medium text-slate-700">Short summary
-              <textarea rows={2} value={blogForm.excerpt} onChange={(event) => setBlogField('excerpt', event.target.value)} className="mt-1 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
+              <div className="mt-1">
+                <RichTextEditor label="Article summary" allowLinks={false} value={blogForm.excerpt} onChange={(value) => setBlogField('excerpt', value)} />
+              </div>
             </label>
             <label className="block text-sm font-medium text-slate-700">Full article
               <div className="mt-1">
-                <RichTextEditor value={blogForm.content} onChange={(value) => setBlogField('content', value)} />
+                <RichTextEditor label="Full article" value={blogForm.content} onChange={(value) => setBlogField('content', value)} />
               </div>
             </label>
             <label className="block text-sm font-medium text-slate-700">Thumbnail image URL (Google Drive share link supported)
@@ -1406,7 +1422,7 @@ export function AdminDashboardPage() {
                       />
                       <span className="min-w-0">
                         <span className="block font-semibold text-slate-800">{blog.title}</span>
-                        <span className="mt-1 block line-clamp-2 text-xs text-slate-500">{blog.excerpt}</span>
+                        <div className="rich-article mt-1 line-clamp-2 text-xs text-slate-500" dangerouslySetInnerHTML={{ __html: sanitizeRichText(blog.excerpt, { allowLinks: false }) }} />
                       </span>
                     </label>
                   )
@@ -1456,7 +1472,9 @@ export function AdminDashboardPage() {
               <input value={sponsorForm.name} onChange={(event) => setSponsorField('name', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
             </label>
             <label className="block text-sm font-medium text-slate-700">Short description
-              <textarea rows={3} value={sponsorForm.description} onChange={(event) => setSponsorField('description', event.target.value)} className="mt-1 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
+              <div className="mt-1">
+                <RichTextEditor label="Sponsor description" allowLinks={false} value={sponsorForm.description} onChange={(value) => setSponsorField('description', value)} />
+              </div>
             </label>
             <label className="block text-sm font-medium text-slate-700">Thumbnail image URL (Google Drive share link supported)
               <input value={sponsorForm.thumbnailUrl} onChange={(event) => setSponsorField('thumbnailUrl', event.target.value)} placeholder="Paste a public image URL" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />

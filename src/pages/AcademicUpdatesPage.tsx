@@ -1,6 +1,7 @@
 import { ArrowUpRight, CalendarDays, FileCheck2, Image as ImageIcon, Landmark } from 'lucide-react'
 import { ContentLinksList } from '../components/ContentLinksList'
 import { normalizeImageUrl } from '../lib/imageUrl'
+import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { usePageMeta } from '../lib/usePageMeta'
 import { useUpdates } from '../lib/updateStore'
 import type { UpdateKind } from '../types.update'
@@ -50,7 +51,7 @@ export function AcademicUpdatesPage({ kind }: AcademicUpdatesPageProps) {
                   <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5" />{item.updatedAt}</span>
                 </div>
                 <h2 className="mt-2 text-xl font-bold text-slate-900">{item.title}</h2>
-                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">{item.details}</p>
+                <div className="rich-article mt-2 text-sm leading-6 text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichText(item.details) }} />
                 <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-800 hover:underline">
                   Official source <ArrowUpRight className="size-4" />
                 </a>

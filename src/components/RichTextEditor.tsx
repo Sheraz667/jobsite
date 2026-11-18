@@ -1,14 +1,17 @@
-import { Bold, Heading2, Heading3, Italic, Link2, List, ListOrdered, Underline } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, Bold, Heading2, Heading3, Highlighter, Italic, Link2, List, ListOrdered, Underline } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { sanitizeRichText } from '../lib/sanitizeRichText'
 
 interface RichTextEditorProps {
   value: string
   onChange: (value: string) => void
+  label?: string
+  allowLinks?: boolean
 }
 
 const toolbarButtonClass = 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-[#f7d154] hover:bg-[#013d2d] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#005b3f]'
 
-export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
+export function RichTextEditor({ value, onChange, label = 'Rich text content', allowLinks = true }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const lastEmittedValueRef = useRef<string | null>(null)
   const savedRangeRef = useRef<Range | null>(null)
@@ -23,7 +26,8 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
       lastEmittedValueRef.current = null
       return
     }
-    if (editor.innerHTML !== value) editor.innerHTML = value
+    const safeValue = sanitizeRichText(value)
+    if (editor.innerHTML !== safeValue) editor.innerHTML = safeValue
   }, [value])
 
   const emitChange = (nextValue: string) => {
@@ -78,6 +82,10 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     { label: 'Bold', icon: Bold, action: () => runCommand('bold') },
     { label: 'Italic', icon: Italic, action: () => runCommand('italic') },
     { label: 'Underline', icon: Underline, action: () => runCommand('underline') },
+    { label: 'Highlight', icon: Highlighter, action: () => runCommand('hiliteColor', '#fff3a3') },
+    { label: 'Align left', icon: AlignLeft, action: () => runCommand('justifyLeft') },
+    { label: 'Align center', icon: AlignCenter, action: () => runCommand('justifyCenter') },
+    { label: 'Align right', icon: AlignRight, action: () => runCommand('justifyRight') },
     { label: 'Heading 2', icon: Heading2, action: () => runCommand('formatBlock', 'h2') },
     { label: 'Heading 3', icon: Heading3, action: () => runCommand('formatBlock', 'h3') },
     { label: 'Bulleted list', icon: List, action: () => runCommand('insertUnorderedList') },
@@ -87,9 +95,9 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-300 bg-white focus-within:border-[#005b3f]">
-      <div className="flex flex-wrap gap-1 border-b border-slate-200 bg-slate-50 p-2" role="toolbar" aria-label="Article formatting">
-        {toolbarActions.map(({ label, icon: Icon, action }) => (
-          <button key={label} type="button" title={label} aria-label={label} onMouseDown={(event) => event.preventDefault()} onClick={action} className={toolbarButtonClass}>
+      <div className="flex flex-wrap gap-1 border-b border-slate-200 bg-slate-50 p-2" role="toolbar" aria-label={`${label} formatting`}>
+        {toolbarActions.filter(({ label: actionLabel }) => allowLinks || actionLabel !== 'Insert link').map(({ label: actionLabel, icon: Icon, action }) => (
+          <button key={actionLabel} type="button" title={actionLabel} aria-label={actionLabel} onMouseDown={(event) => event.preventDefault()} onClick={action} className={toolbarButtonClass}>
             <Icon className="h-4 w-4" />
           </button>
         ))}
@@ -99,9 +107,9 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         contentEditable
         suppressContentEditableWarning
         role="textbox"
-        aria-label="Full article"
+        aria-label={label}
         aria-multiline="true"
-        data-placeholder="Write your article here. Select text to format it or add a link..."
+        data-placeholder={`Write ${label.toLowerCase()} here. Select text to format it...`}
         onInput={(event) => emitChange(event.currentTarget.innerHTML)}
         className="rich-text-editor min-h-64 p-4 text-sm leading-7 text-slate-800 outline-none"
       />

@@ -1,5 +1,6 @@
 import { usePageMeta } from '../lib/usePageMeta'
 import { usePages } from '../lib/pageStore'
+import { plainTextFromRichText, sanitizeRichText } from '../lib/sanitizeRichText'
 
 interface StaticPageProps {
   slug: string
@@ -12,14 +13,14 @@ export function StaticPage({ slug }: StaticPageProps) {
   const list = page?.list ?? []
   const actionHref = page?.actionHref
   const actionLabel = page?.actionLabel
-  usePageMeta({ title: `${title} | PakJobInfo`, description: intro })
+  usePageMeta({ title: `${title} | PakJobInfo`, description: plainTextFromRichText(intro) })
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">Pakistan Jobs Portal</p>
         <h1 className="mt-3 text-3xl font-black text-slate-900">{title}</h1>
-        <p className="mt-4 text-lg leading-8 text-slate-700">{intro}</p>
+        <div className="rich-article mt-4 text-lg leading-8 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeRichText(intro) }} />
 
         {list.length > 0 && (
           <ul className="mt-6 space-y-3 pl-5 text-slate-700">

@@ -2,7 +2,7 @@ import { ArrowLeft, CalendarDays, ExternalLink } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { ContentLinksList } from '../components/ContentLinksList'
 import { useBlogs } from '../lib/blogStore'
-import { sanitizeRichText } from '../lib/sanitizeRichText'
+import { plainTextFromRichText, sanitizeRichText } from '../lib/sanitizeRichText'
 import { usePageMeta } from '../lib/usePageMeta'
 
 export function BlogDetailPage() {
@@ -15,7 +15,7 @@ export function BlogDetailPage() {
 
   usePageMeta({
     title: article ? `${article.title} | PakJobInfo` : 'Career article | PakJobInfo',
-    description: article?.excerpt ?? 'Career guides and information from PakJobInfo.',
+    description: article ? plainTextFromRichText(article.excerpt) : 'Career guides and information from PakJobInfo.',
     image: article?.thumbnailUrl,
     type: 'article',
     robots: article ? 'index,follow' : 'noindex,follow',
@@ -36,7 +36,7 @@ export function BlogDetailPage() {
       <header>
         <p className="flex items-center gap-2 text-sm text-slate-500"><CalendarDays className="h-4 w-4" /> {article.updatedAt}</p>
         <h1 className="mt-3 text-3xl font-black leading-tight text-slate-900 sm:text-4xl">{article.title}</h1>
-        <p className="mt-4 text-lg leading-8 text-slate-600">{article.excerpt}</p>
+        <div className="rich-article mt-4 text-lg leading-8 text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichText(article.excerpt, { allowLinks: false }) }} />
       </header>
       <img src={article.thumbnailUrl} alt="" className="mt-8 max-h-[30rem] w-full rounded-2xl object-cover" />
       <div className="rich-article mt-8 text-base leading-8 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeRichText(article.content) }} />
@@ -50,7 +50,7 @@ export function BlogDetailPage() {
                 <img src={relatedArticle.thumbnailUrl} alt="" loading="lazy" className="h-36 w-full object-cover sm:h-44" />
                 <div className="p-4">
                   <h3 className="font-bold text-slate-900">{relatedArticle.title}</h3>
-                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{relatedArticle.excerpt}</p>
+                  <div className="rich-article mt-2 line-clamp-3 text-sm leading-6 text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichText(relatedArticle.excerpt, { allowLinks: false }) }} />
                   <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#005b3f]">Read article <ExternalLink className="h-4 w-4" /></span>
                 </div>
               </Link>

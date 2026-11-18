@@ -3,6 +3,7 @@ import { JobCard } from '../components/JobCard'
 import { useCategories } from '../lib/categoryStore'
 import { isJobUnavailable } from '../lib/jobDeadline'
 import { useJobs } from '../lib/jobStore'
+import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { usePageMeta } from '../lib/usePageMeta'
 
 interface CategoryPageProps {
@@ -37,7 +38,7 @@ export function CategoryPage({ categoryKey }: CategoryPageProps) {
       <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-700">Category</p>
         <h1 className="mt-2 text-3xl font-black text-slate-900">{category.name}</h1>
-        <p className="mt-3 max-w-2xl text-slate-600">{category.description}</p>
+        <div className="rich-article mt-3 max-w-2xl text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichText(category.description) }} />
         <div className="mt-5 flex items-center gap-3">
           <Link to="/jobs" className="rounded-full bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">
             Browse all jobs

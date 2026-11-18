@@ -5,6 +5,7 @@ import brandLogo from '../assets/logo/logo2-optimized.png'
 import { ContentLinksList } from './ContentLinksList'
 import { useCategories } from '../lib/categoryStore'
 import { useFooterLinks } from '../lib/footerLinkStore'
+import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { useSponsors } from '../lib/sponsorStore'
 import type { FooterLinkItem, FooterLinkGroup } from '../types.footer'
 
@@ -222,10 +223,10 @@ export function Layout() {
                       <img src={sponsor.thumbnailUrl} alt="" loading="lazy" className="h-24 w-24 shrink-0 rounded-xl bg-slate-50 object-cover" />
                       <span className="min-w-0">
                         <span className="block truncate font-bold text-slate-900">{sponsor.name}</span>
-                        <span className="mt-1 block line-clamp-2 text-sm leading-5 text-slate-600">{sponsor.description}</span>
                         <span className="mt-2 block text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Sponsored · Visit</span>
                       </span>
                     </a>
+                    <div className="rich-article line-clamp-2 text-sm leading-5 text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichText(sponsor.description, { allowLinks: false }) }} />
                     {Object.entries(sponsor.socialLinks ?? {}).filter(([, url]) => Boolean(url)).length > 0 && (
                       <div className="flex justify-center gap-3 border-t border-slate-100 pt-4">
                         {([

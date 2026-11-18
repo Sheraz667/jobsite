@@ -4,6 +4,7 @@ import { ContentLinksList } from '../components/ContentLinksList'
 import { useCategories } from '../lib/categoryStore'
 import { isJobDeadlinePassed, isJobUnavailable } from '../lib/jobDeadline'
 import { useJobs } from '../lib/jobStore'
+import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { usePageMeta } from '../lib/usePageMeta'
 
 export function JobDetailPage() {
@@ -87,7 +88,7 @@ export function JobDetailPage() {
 
           <section>
             <h2 className="mb-4 text-2xl font-black text-slate-900">Job description</h2>
-            <p className="leading-7 text-slate-700">{job.description}</p>
+            <div className="rich-article leading-7 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeRichText(job.description) }} />
           </section>
 
           <section>

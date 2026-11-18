@@ -1,6 +1,7 @@
 import { ArrowRight, BookOpenText } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useBlogs } from '../lib/blogStore'
+import { sanitizeRichText } from '../lib/sanitizeRichText'
 import { usePageMeta } from '../lib/usePageMeta'
 
 export function BlogsPage() {
@@ -24,7 +25,7 @@ export function BlogsPage() {
                 <div className="p-5">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#005b3f]">{article.updatedAt}</p>
                   <h2 className="mt-2 text-xl font-bold text-slate-900">{article.title}</h2>
-                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{article.excerpt}</p>
+                  <div className="rich-article mt-2 line-clamp-3 text-sm leading-6 text-slate-600" dangerouslySetInnerHTML={{ __html: sanitizeRichText(article.excerpt, { allowLinks: false }) }} />
                   <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#005b3f]">Read article <ArrowRight className="h-4 w-4" /></span>
                 </div>
               </Link>
