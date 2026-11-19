@@ -13,6 +13,7 @@ const toolbarButtonClass = 'inline-flex h-9 w-9 items-center justify-center roun
 
 export function RichTextEditor({ value, onChange, label = 'Rich text content', allowLinks = true }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
+  const linkInputRef = useRef<HTMLInputElement>(null)
   const lastEmittedValueRef = useRef<string | null>(null)
   const savedRangeRef = useRef<Range | null>(null)
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
@@ -35,10 +36,39 @@ export function RichTextEditor({ value, onChange, label = 'Rich text content', a
     onChange(nextValue)
   }
 
+  const saveSelection = () => {
+    const editor = editorRef.current
+    const selection = window.getSelection()
+    if (!editor || !selection?.rangeCount) return
+
+    const range = selection.getRangeAt(0)
+    if (editor.contains(range.commonAncestorContainer)) {
+      savedRangeRef.current = range.cloneRange()
+    }
+  }
+
+  const restoreSelection = (editor: HTMLDivElement) => {
+    const range = savedRangeRef.current
+    const selection = window.getSelection()
+    if (!range || !selection || !editor.contains(range.commonAncestorContainer)) return
+
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }
+
+  useEffect(() => {
+    if (linkPanelOpen) linkInputRef.current?.focus({ preventScroll: true })
+  }, [linkPanelOpen])
+
   const runCommand = (command: string, commandValue?: string) => {
-    editorRef.current?.focus()
+    const editor = editorRef.current
+    if (!editor) return
+
+    editor.focus({ preventScroll: true })
+    restoreSelection(editor)
     document.execCommand(command, false, commandValue)
-    emitChange(editorRef.current?.innerHTML ?? '')
+    emitChange(editor.innerHTML)
+    saveSelection()
   }
 
   const openLinkPanel = () => {
@@ -64,16 +94,17 @@ export function RichTextEditor({ value, onChange, label = 'Rich text content', a
 
     const editor = editorRef.current
     const selection = window.getSelection()
-    if (!editor || !selection || !savedRangeRef.current) {
+    if (!editor || !selection || !savedRangeRef.current || !editor.contains(savedRangeRef.current.commonAncestorContainer)) {
       setLinkError('Select the link text in the article before inserting a link.')
       return
     }
 
-    editor.focus()
+    editor.focus({ preventScroll: true })
     selection.removeAllRanges()
     selection.addRange(savedRangeRef.current)
     document.execCommand('createLink', false, trimmedHref)
     emitChange(editor.innerHTML)
+    saveSelection()
     setLinkPanelOpen(false)
     setLinkError('')
   }
@@ -97,7 +128,7 @@ export function RichTextEditor({ value, onChange, label = 'Rich text content', a
     <div className="overflow-hidden rounded-xl border border-slate-300 bg-white focus-within:border-[#005b3f]">
       <div className="flex flex-wrap gap-1 border-b border-slate-200 bg-slate-50 p-2" role="toolbar" aria-label={`${label} formatting`}>
         {toolbarActions.filter(({ label: actionLabel }) => allowLinks || actionLabel !== 'Insert link').map(({ label: actionLabel, icon: Icon, action }) => (
-          <button key={actionLabel} type="button" title={actionLabel} aria-label={actionLabel} onMouseDown={(event) => event.preventDefault()} onClick={action} className={toolbarButtonClass}>
+          <button key={actionLabel} type="button" title={actionLabel} aria-label={actionLabel} onPointerDown={(event) => event.preventDefault()} onClick={action} className={toolbarButtonClass}>
             <Icon className="h-4 w-4" />
           </button>
         ))}
@@ -110,13 +141,16 @@ export function RichTextEditor({ value, onChange, label = 'Rich text content', a
         aria-label={label}
         aria-multiline="true"
         data-placeholder={`Write ${label.toLowerCase()} here. Select text to format it...`}
-        onInput={(event) => emitChange(event.currentTarget.innerHTML)}
+        onInput={(event) => { emitChange(event.currentTarget.innerHTML); saveSelection() }}
+        onPointerUp={saveSelection}
+        onKeyUp={saveSelection}
         className="rich-text-editor min-h-64 p-4 text-sm leading-7 text-slate-800 outline-none"
       />
       {linkPanelOpen && (
         <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center">
           <label className="sr-only" htmlFor="article-link-url">Internal path or external URL</label>
           <input
+            ref={linkInputRef}
             id="article-link-url"
             type="text"
             value={linkHref}
@@ -124,7 +158,6 @@ export function RichTextEditor({ value, onChange, label = 'Rich text content', a
             onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); applyLink() } }}
             placeholder="/jobs or https://example.com"
             className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#005b3f]"
-            autoFocus
           />
           <button type="button" onClick={applyLink} className="rounded-lg bg-[#013d2d] px-3 py-2 text-sm font-semibold text-white hover:bg-[#005b3f]">Add link</button>
           <button type="button" onClick={() => { setLinkPanelOpen(false); setLinkError('') }} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Cancel</button>

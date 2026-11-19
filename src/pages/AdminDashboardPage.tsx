@@ -965,12 +965,12 @@ export function AdminDashboardPage() {
               Department / Company Name
               <input value={formData.department} onChange={(event) => handleFieldChange('department', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
             </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Full job description
+            <div className="block text-sm font-medium text-slate-700">
+              <span className="block">Full job description</span>
               <div className="mt-1">
                 <RichTextEditor label="Job description" value={formData.description} onChange={(value) => { handleFieldChange('description', value); setFormError('') }} />
               </div>
-            </label>
+            </div>
             <label className="block text-sm font-medium text-slate-700">
               Thumbnail image URL (Google Drive share link supported)
               <input value={formData.thumbnailUrl} onChange={(event) => handleFieldChange('thumbnailUrl', event.target.value)} placeholder="Paste a public Google Drive image link or direct image URL" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
@@ -1152,11 +1152,11 @@ export function AdminDashboardPage() {
               <label className="block text-sm font-medium text-slate-700">Department / institute / board
                 <input value={updateForm.department} onChange={(event) => setUpdateForm((current) => ({ ...current, department: event.target.value }))} placeholder="Organization name" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
               </label>
-              <label className="block text-sm font-medium text-slate-700">Details
+              <div className="block text-sm font-medium text-slate-700"><span className="block">Details</span>
                 <div className="mt-1">
                   <RichTextEditor label="Update details" value={updateForm.details} onChange={(details) => setUpdateForm((current) => ({ ...current, details }))} />
                 </div>
-              </label>
+              </div>
               <label className="block text-sm font-medium text-slate-700">Thumbnail image URL (Google Drive share link supported)
                 <input value={updateForm.thumbnailUrl} onChange={(event) => setUpdateForm((current) => ({ ...current, thumbnailUrl: event.target.value }))} placeholder="Paste a public Google Drive image link or direct image URL" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
               </label>
@@ -1208,11 +1208,11 @@ export function AdminDashboardPage() {
             <label className="block text-sm font-medium text-slate-700">Type name
               <input value={categoryForm.name} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Remote Jobs" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
             </label>
-            <label className="block text-sm font-medium text-slate-700">Short description
+            <div className="block text-sm font-medium text-slate-700"><span className="block">Short description</span>
               <div className="mt-1">
                 <RichTextEditor label="Job type description" value={categoryForm.description} onChange={(description) => setCategoryForm((current) => ({ ...current, description }))} />
               </div>
-            </label>
+            </div>
             {editingCategoryId && <p className="text-xs text-slate-500">The URL slug stays unchanged when editing so existing job links remain stable.</p>}
             {categoryError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{categoryError}</p>}
             <div className="flex flex-wrap gap-3">
@@ -1263,11 +1263,11 @@ export function AdminDashboardPage() {
             <label className="block text-sm font-semibold text-slate-700">Page title
               <input value={pageForm.title} onChange={(event) => { setPageForm((current) => ({ ...current, title: event.target.value })); setPageSaved(false) }} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" />
             </label>
-            <label className="block text-sm font-semibold text-slate-700">Introduction
+            <div className="block text-sm font-semibold text-slate-700"><span className="block">Introduction</span>
               <div className="mt-1.5">
                 <RichTextEditor label="Page introduction" value={pageForm.intro} onChange={(intro) => { setPageForm((current) => ({ ...current, intro })); setPageSaved(false) }} />
               </div>
-            </label>
+            </div>
             <label className="block text-sm font-semibold text-slate-700">Bullet points <span className="font-normal text-slate-500">(one per line)</span>
               <textarea rows={5} value={pageForm.list.join('\n')} onChange={(event) => { setPageForm((current) => ({ ...current, list: event.target.value.split('\n') })); setPageSaved(false) }} className="mt-1.5 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10" />
             </label>
@@ -1372,16 +1372,16 @@ export function AdminDashboardPage() {
             <label className="block text-sm font-medium text-slate-700">Article title
               <input value={blogForm.title} onChange={(event) => setBlogField('title', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
             </label>
-            <label className="block text-sm font-medium text-slate-700">Short summary
+            <div className="block text-sm font-medium text-slate-700"><span className="block">Short summary</span>
               <div className="mt-1">
                 <RichTextEditor label="Article summary" allowLinks={false} value={blogForm.excerpt} onChange={(value) => setBlogField('excerpt', value)} />
               </div>
-            </label>
-            <label className="block text-sm font-medium text-slate-700">Full article
+            </div>
+            <div className="block text-sm font-medium text-slate-700"><span className="block">Full article</span>
               <div className="mt-1">
                 <RichTextEditor label="Full article" value={blogForm.content} onChange={(value) => setBlogField('content', value)} />
               </div>
-            </label>
+            </div>
             <label className="block text-sm font-medium text-slate-700">Thumbnail image URL (Google Drive share link supported)
               <input value={blogForm.thumbnailUrl} onChange={(event) => setBlogField('thumbnailUrl', event.target.value)} placeholder="Paste a public Google Drive image link or direct image URL" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-blue-500" />
             </label>
@@ -1471,11 +1471,11 @@ export function AdminDashboardPage() {
             <label className="block text-sm font-medium text-slate-700">Sponsor name
               <input value={sponsorForm.name} onChange={(event) => setSponsorField('name', event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
             </label>
-            <label className="block text-sm font-medium text-slate-700">Short description
+            <div className="block text-sm font-medium text-slate-700"><span className="block">Short description</span>
               <div className="mt-1">
                 <RichTextEditor label="Sponsor description" allowLinks={false} value={sponsorForm.description} onChange={(value) => setSponsorField('description', value)} />
               </div>
-            </label>
+            </div>
             <label className="block text-sm font-medium text-slate-700">Thumbnail image URL (Google Drive share link supported)
               <input value={sponsorForm.thumbnailUrl} onChange={(event) => setSponsorField('thumbnailUrl', event.target.value)} placeholder="Paste a public image URL" className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 outline-none focus:border-[#005b3f]" />
             </label>
