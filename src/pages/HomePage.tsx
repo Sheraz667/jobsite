@@ -93,10 +93,10 @@ export function HomePage() {
               <Link to="/jobs" className="text-sm font-semibold text-[#005b3f]">Explore all jobs</Link>
             </div>
           </div>
-          <div aria-label="Latest jobs carousel" tabIndex={0} className="relative z-10 flex snap-x snap-mandatory touch-pan-x gap-2 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 lg:gap-4">
+          <div aria-label="Latest jobs carousel" tabIndex={0} className="relative z-10 flex snap-x snap-mandatory touch-auto gap-3 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 lg:gap-4">
             {publicJobs
               .map((job) => (
-                <div key={job.id} className="w-[calc((100%_-_1rem)/3)] shrink-0 snap-start lg:w-[calc((100%_-_3rem)/4)]">
+                <div key={job.id} className="w-[86%] min-w-0 shrink-0 snap-start sm:w-[calc((100%_-_0.75rem)/2)] lg:w-[calc((100%_-_3rem)/4)]">
                   <JobCard job={job} />
                 </div>
               ))}

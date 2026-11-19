@@ -26,7 +26,7 @@ export function JobCard({ job }: JobCardProps) {
   const jobLocation = [job.city, job.province].filter(Boolean).join(', ')
 
   return (
-    <article className="job-card group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(0,91,63,0.14)]">
+    <article className="job-card group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[border-color,box-shadow] duration-200">
       <div className={`job-image relative ${imageLoaded ? 'is-loaded' : ''}`}>
         <div className="job-image-skeleton" aria-hidden="true" />
         <img
@@ -36,22 +36,22 @@ export function JobCard({ job }: JobCardProps) {
           decoding="async"
           onLoad={() => setImageLoaded(true)}
           onError={() => setImageLoaded(true)}
-          className="job-image-content h-48 w-full object-cover"
+          className="job-image-content h-44 w-full object-cover sm:h-48"
         />
         <span className={`absolute left-4 top-4 rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses[displayStatus] ?? 'bg-slate-200 text-slate-700'}`}>
           {displayStatus}
         </span>
       </div>
 
-      <div className="flex flex-1 flex-col p-5">
-        <div className="mb-3 flex items-center justify-between gap-3 text-xs text-slate-500">
+      <div className="flex flex-1 flex-col p-4 sm:p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
           <span className="rounded-full bg-slate-100 px-2 py-1 font-medium text-slate-700">
             {categoryName}
           </span>
           <span>{job.deadline}</span>
         </div>
 
-        <h3 className="text-xl font-semibold text-slate-900">{job.title}</h3>
+        <h3 className="text-lg font-semibold leading-snug text-slate-900 sm:text-xl">{job.title}</h3>
         <p className="mt-2 text-sm text-slate-600">{job.department}</p>
 
         <div className="mt-4 space-y-2 text-sm text-slate-600">

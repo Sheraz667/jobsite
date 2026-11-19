@@ -268,7 +268,26 @@ img {
 
 .job-card:hover {
   border-color: rgba(0, 91, 63, 0.2);
-  transform: translateY(-3px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .job-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 40px rgba(0, 91, 63, 0.14);
+  }
+}
+
+@media (max-width: 639px) {
+  .job-image {
+    min-height: 11rem;
+  }
+
+  .job-card h3 {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
 }
 
 .premium-panel {
